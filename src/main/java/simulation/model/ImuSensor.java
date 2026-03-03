@@ -49,24 +49,37 @@ public class ImuSensor extends Sensor {
     public void update(double dt) {
         RigidBodySegment seg = getAttachedSegment();
         double angle = seg.getAngle();
+        double omega = seg.getAngularVelocity();
 
         // --- Gyroscope: angular velocity (about Z axis in local frame for sagittal) ---
         gyroX = 0;
         gyroY = 0;
-        gyroZ = seg.getAngularVelocity();
+        gyroZ = omega;
 
-        // --- Accelerometer: linear acceleration in local frame ---
-        // Compute world-frame acceleration from velocity change (finite difference)
+        // --- Accelerometer: compute from angular motion ---
+        // The sensor is at offset fraction f along the segment.
+        // Its distance from the proximal pivot is r = f * length.
+        double r = getLocalOffsetFraction() * seg.getLength();
+
+        // Tangential velocity: v_t = omega * r  (perpendicular to segment axis)
+        // In world frame with angle measured from vertical:
+        //   vx = omega * r * cos(angle)
+        //   vy = omega * r * sin(angle)
+        double currentVelX = omega * r * Math.cos(angle);
+        double currentVelY = omega * r * Math.sin(angle);
+
+        // Acceleration from velocity change (finite difference)
         double worldAccelX = 0;
         double worldAccelY = 0;
         if (dt > 1e-9) {
-            worldAccelX = (seg.getVelX() - prevVelX) / dt;
-            worldAccelY = (seg.getVelY() - prevVelY) / dt;
+            worldAccelX = (currentVelX - prevVelX) / dt;
+            worldAccelY = (currentVelY - prevVelY) / dt;
         }
-        // Add gravity (accelerometer measures specific force = a - g, but senses g when stationary)
-        // In world frame, gravity is (0, -9.81). Accelerometer reads: a_measured = a_actual - g
-        // But conventionally, a stationary accelerometer reads +g, so: a_measured = a_actual + (0, 9.81)
-        worldAccelX += 0;
+
+        prevVelX = currentVelX;
+        prevVelY = currentVelY;
+
+        // Accelerometer senses specific force: a_sensed = a_real + g  (stationary reads +g)
         worldAccelY += 9.81;
 
         // Rotate world-frame acceleration into local (body) frame
@@ -76,9 +89,6 @@ public class ImuSensor extends Sensor {
         accelY = worldAccelX * sinA + worldAccelY * cosA;
         accelZ = 0;
 
-        prevVelX = seg.getVelX();
-        prevVelY = seg.getVelY();
-
         // --- Magnetometer: global field projected into local frame ---
         magX = GLOBAL_MAG_X * cosA - GLOBAL_MAG_Y * sinA;
         magY = GLOBAL_MAG_X * sinA + GLOBAL_MAG_Y * cosA;
@@ -86,7 +96,7 @@ public class ImuSensor extends Sensor {
 
         // Record history
         history.add(new double[]{
-                0, // time placeholder – filled by SimulationEngine
+                0, // time placeholder – filled by stampTime()
                 accelX, accelY, gyroZ, magX, magY
         });
     }

@@ -63,7 +63,6 @@ public class ScriptedProstrationController implements ExoController {
         double ankleTarget = computeTarget(time, ANKLE_STANDING, ANKLE_PROSTRATE);
 
         // Get current joint states
-        Joint hip   = state.getHumanModel().getHipJoint();
         Joint knee  = state.getHumanModel().getKneeJoint();
         Joint ankle = state.getHumanModel().getAnkleJoint();
 
