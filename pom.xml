@@ -15,12 +15,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-    <!--
-        JavaFX dependencies are NOT declared here because the project uses
-        BellSoft Liberica JDK 21 Full, which bundles JavaFX.
-        If you switch to a JDK without bundled JavaFX, uncomment the dependencies below
-        and adjust the classifier for your platform (win, linux, mac, etc.):
-
         <dependencies>
             <dependency>
                 <groupId>org.openjfx</groupId>
@@ -33,7 +27,7 @@
                 <version>21.0.2</version>
             </dependency>
         </dependencies>
-    -->
+
 
     <build>
         <plugins>
