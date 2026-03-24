@@ -43,7 +43,7 @@ public class MainView extends BorderPane {
     private final List<DraggableModule> draggableModules = new ArrayList<>();
 
     // Materials
-    private final PhongMaterial humanMaterial = new PhongMaterial(Color.CORNFLOWERBLUE);
+    private final PhongMaterial humanMaterial = new PhongMaterial(Color.RED);
     private final PhongMaterial exoMaterial   = new PhongMaterial(Color.color(0.5, 0.5, 0.5, 0.8));
     private final PhongMaterial jointMaterial = new PhongMaterial(Color.LIGHTGRAY);
     private final PhongMaterial dangerMaterial = new PhongMaterial(Color.RED);
@@ -122,6 +122,11 @@ public class MainView extends BorderPane {
 
         controlPanel.getSideViewButton().setOnAction(e -> cameraController.resetToSideView());
         controlPanel.getFrontViewButton().setOnAction(e -> cameraController.resetToFrontView());
+
+        controlPanel.setOnParameterChange(() -> {
+            //forcing the update
+            updateTransforms(engine.getState());
+        });
 
         // Right panel: tabbed
         TabPane tabPane = new TabPane();
@@ -401,6 +406,7 @@ public class MainView extends BorderPane {
         double cy = py - 0.5 * seg.getLength() * Math.cos(angle);
 
         cyl.getTransforms().clear();
+        cyl.setHeight(seg.getLength() * SCALE);
         cyl.getTransforms().addAll(
                 new Translate(cx * SCALE, -cy * SCALE, 0),
                 new Rotate(Math.toDegrees(angle), Rotate.Z_AXIS)

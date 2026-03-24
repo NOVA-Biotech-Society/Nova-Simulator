@@ -123,8 +123,15 @@ public class ControlPanel extends VBox {
         Slider hSlider = new Slider(1.40, 2.10, heightModel.getHeight());
         hSlider.setShowTickLabels(true);
         hSlider.setMajorTickUnit(0.1);
-        hSlider.valueProperty().addListener((obs, o, n) ->
-                hValue.setText(String.format("%.2f m", n.doubleValue())));
+        hSlider.valueProperty().addListener((obs, o, n) -> {
+            hValue.setText(String.format("%.2f m", n.doubleValue()));
+
+            //Here we update the human height (it affects all the segmentations in the simulation)
+            engine.getState().getHumanModel().setHeight(n.doubleValue());
+            if (onParameterChange != null) {
+                onParameterChange.run();
+            }
+        });
 
         // Mass slider
         Label mLabel = new Label("Mass:");
@@ -195,6 +202,7 @@ public class ControlPanel extends VBox {
     public void updateTime(double time) {
         timeLabel.setText(String.format("Time: %.3f s", time));
         updateStatus();
+        engine.getState().getHumanModel().updateSegmentationDimensions();
     }
 
     private void updateStatus() {

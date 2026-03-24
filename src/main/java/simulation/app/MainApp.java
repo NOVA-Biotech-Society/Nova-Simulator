@@ -62,7 +62,7 @@ public class MainApp extends Application {
         MainView mainView = new MainView(engine);
 
         // 7. Create scene and show
-        Scene scene = new Scene(mainView, 1280, 800);
+        Scene scene = new Scene(mainView, 1280, 720);
         scene.setFill(javafx.scene.paint.Color.web("#1a1a2e"));
 
         primaryStage.setTitle("Nova Exoskeleton Simulator");

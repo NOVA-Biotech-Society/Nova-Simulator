@@ -23,6 +23,9 @@ public class HumanModel {
     // --- Body parameters ---
     private double height;      // m
     private double totalMass;   // kg
+    private double thighLength;
+    private double shankLength;
+    private double footLength;
 
     // Pelvis (hip) anchor position in world coordinates
     private double hipAnchorX;
@@ -39,11 +42,6 @@ public class HumanModel {
         this.height = height;
         this.totalMass = totalMass;
 
-        // Anthropometric ratios (approximate, from Winter's biomechanics)
-        double thighLength = height * 0.245;   // ~24.5% of height
-        double shankLength = height * 0.246;   // ~24.6% of height
-        double footLength  = height * 0.039;   // foot "height" for vertical representation
-
         double thighMass = totalMass * 0.10;   // ~10% of body mass per thigh
         double shankMass = totalMass * 0.047;  // ~4.7% per shank
         double footMass  = totalMass * 0.014;  // ~1.4% per foot
@@ -54,6 +52,9 @@ public class HumanModel {
         thigh = new RigidBodySegment("Thigh", thighMass, thighLength, segmentWidth);
         shank = new RigidBodySegment("Shank", shankMass, shankLength, segmentWidth * 0.85);
         foot  = new RigidBodySegment("Foot",  footMass,  footLength,  segmentWidth * 0.7);
+
+        // Anthropometric ratios (approximate, from Winter's biomechanics)
+        updateSegmentationDimensions();
 
         // Create joints with physiological angle limits (radians)
         // Hip joint: represents the absolute angle of the thigh relative to the vertical.
@@ -138,6 +139,16 @@ public class HumanModel {
         foot.setPosY(shank.getDistalY());
     }
 
+    public void updateSegmentationDimensions(){
+        this.thighLength = height * 0.245;   // ~24.5% of height
+        this.shankLength = height * 0.246;   // ~24.6% of height
+        this.footLength  = height * 0.039;   // foot "height" for vertical representation
+        thigh.setLength(this.thighLength);
+        shank.setLength(this.shankLength);
+        foot.setLength(this.footLength);
+    }
+
+
     // ---- Getters ----
 
     public RigidBodySegment getThigh() { return thigh; }
@@ -157,6 +168,11 @@ public class HumanModel {
     public double getHipAnchorY() { return hipAnchorY; }
     public void setHipAnchorX(double x) { this.hipAnchorX = x; }
     public void setHipAnchorY(double y) { this.hipAnchorY = y; }
+    public void setHeight(double height) {
+        this.height = height;
+        updateSegmentationDimensions();
+        enforcePositionConstraints();
+    }
 }
 
 

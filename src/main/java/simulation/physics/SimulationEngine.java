@@ -98,7 +98,7 @@ public class SimulationEngine {
 
         // 3. Integrate physics (gravity, constraints, integration — no clearForces inside)
         integrator.integrate(state, dt);
-
+        state.getHumanModel().enforcePositionConstraints();
         // 4. Update sensors
         exo.updateSensors(dt, state.getTime());
 

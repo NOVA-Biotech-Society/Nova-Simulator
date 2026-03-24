@@ -10,7 +10,7 @@ package simulation.app;
 public class SimulationConfig {
 
     // --- Simulation parameters ---
-    private double dt = 0.002;             // timestep in seconds (2 ms = 500 Hz)
+    private double dt = 0.001;             // timestep in seconds (2 ms = 500 Hz)
     private double gravity = 9.81;          // m/s²
 
     // --- Human body parameters ---
