@@ -5,6 +5,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
 import simulation.physics.SimulationEngine;
 
@@ -21,8 +22,11 @@ public class ControlPanel extends VBox {
     private final Button pauseBtn;
     private final Button sideViewBtn;
     private final Button frontViewBtn;
+    private final Button importBtn;
+    private final Button exportBtn;
     private final Slider speedSlider;
-
+    private Slider heightSlider, massSlider, torqueSlider, powerSlider;
+    private Label heightSliderValue, massSliderValue, torqueSliderValue, powerSliderValue;
     // Callbacks for parameter changes (rebuild model)
     private Runnable onParameterChange;
 
@@ -92,6 +96,18 @@ public class ControlPanel extends VBox {
         HBox cameraRow = new HBox(8, sideViewBtn, frontViewBtn);
         cameraRow.setAlignment(Pos.CENTER);
 
+        // --- Import Export Section ---
+        Label parametersTitle = new Label("Parameters");
+        parametersTitle.setStyle("-fx-text-fill: #e0e0e0; -fx-font-weight: bold;");
+        importBtn = createButton("Import", "#10bb00");
+        exportBtn = createButton("Export", "#ffa436");
+        importBtn.setId("importBtn");
+        exportBtn.setId("exportBtn");
+        HBox importExportRow = new HBox(8, importBtn, exportBtn);
+        importExportRow.setAlignment(Pos.CENTER);
+
+
+
         Separator sep1 = new Separator();
         Separator sep2 = new Separator();
 
@@ -102,7 +118,9 @@ public class ControlPanel extends VBox {
                 transportRow1, transportRow2,
                 speedLabel, speedSlider,
                 sep2,
+                parametersTitle,
                 humanPane, exoPane,
+                importExportRow,
                 cameraTitle, cameraRow
         );
     }
@@ -118,13 +136,13 @@ public class ControlPanel extends VBox {
         // Height slider
         Label hLabel = new Label("Height:");
         hLabel.setStyle("-fx-text-fill: #ccc;");
-        Label hValue = new Label(String.format("%.2f m", heightModel.getHeight()));
-        hValue.setStyle("-fx-text-fill: #00e676; -fx-font-family: Consolas;");
-        Slider hSlider = new Slider(1.40, 2.10, heightModel.getHeight());
-        hSlider.setShowTickLabels(true);
-        hSlider.setMajorTickUnit(0.1);
-        hSlider.valueProperty().addListener((obs, o, n) -> {
-            hValue.setText(String.format("%.2f m", n.doubleValue()));
+        heightSliderValue = new Label(String.format("%.2f m", heightModel.getHeight()));
+        heightSliderValue.setStyle("-fx-text-fill: #00e676; -fx-font-family: Consolas;");
+        heightSlider = new Slider(1.40, 2.10, heightModel.getHeight());
+        heightSlider.setShowTickLabels(true);
+        heightSlider.setMajorTickUnit(0.1);
+        heightSlider.valueProperty().addListener((obs, o, n) -> {
+            heightSliderValue.setText(String.format("%.2f m", n.doubleValue()));
 
             //Here we update the human height (it affects all the segmentations in the simulation)
             engine.getState().getHumanModel().setHeight(n.doubleValue());
@@ -136,20 +154,27 @@ public class ControlPanel extends VBox {
         // Mass slider
         Label mLabel = new Label("Mass:");
         mLabel.setStyle("-fx-text-fill: #ccc;");
-        Label mValue = new Label(String.format("%.0f kg", heightModel.getTotalMass()));
-        mValue.setStyle("-fx-text-fill: #00e676; -fx-font-family: Consolas;");
-        Slider mSlider = new Slider(40, 150, heightModel.getTotalMass());
-        mSlider.setShowTickLabels(true);
-        mSlider.setMajorTickUnit(20);
-        mSlider.valueProperty().addListener((obs, o, n) ->
-                mValue.setText(String.format("%.0f kg", n.doubleValue())));
+        massSliderValue = new Label(String.format("%.0f kg", heightModel.getTotalMass()));
+        massSliderValue.setStyle("-fx-text-fill: #00e676; -fx-font-family: Consolas;");
+        massSlider = new Slider(40, 150, heightModel.getTotalMass());
+        massSlider.setShowTickLabels(true);
+        massSlider.setMajorTickUnit(20);
+        massSlider.valueProperty().addListener((obs, o, n) -> {
+            massSliderValue.setText(String.format("%.0f kg", n.doubleValue()));
+            //Here we update the human mass (it affects all the segmentations in the simulation)
+            engine.getState().getHumanModel().setTotalMass(n.doubleValue());
+            if (onParameterChange != null) {
+                onParameterChange.run();
+            }
+        });
 
-        grid.add(hLabel, 0, 0); grid.add(hSlider, 1, 0); grid.add(hValue, 2, 0);
-        grid.add(mLabel, 0, 1); grid.add(mSlider, 1, 1); grid.add(mValue, 2, 1);
+
+        grid.add(hLabel, 0, 0); grid.add(heightSlider, 1, 0); grid.add(heightSliderValue, 2, 0);
+        grid.add(mLabel, 0, 1); grid.add(massSlider, 1, 1); grid.add(massSliderValue, 2, 1);
 
         TitledPane pane = new TitledPane("Human Parameters", grid);
         pane.setExpanded(false);
-        pane.setStyle("-fx-text-fill: #e0e0e0;");
+        pane.setStyle("-fx-text-fill: #000000;");
         return pane;
     }
 
@@ -164,37 +189,37 @@ public class ControlPanel extends VBox {
         // Motor max torque
         Label tLabel = new Label("Motor τ:");
         tLabel.setStyle("-fx-text-fill: #ccc;");
-        Label tValue = new Label(String.format("%.0f N·m", exo.getHipMotor().getMaxTorque()));
-        tValue.setStyle("-fx-text-fill: #00e676; -fx-font-family: Consolas;");
-        Slider tSlider = new Slider(10, 200, exo.getHipMotor().getMaxTorque());
-        tSlider.setShowTickLabels(true);
-        tSlider.setMajorTickUnit(50);
-        tSlider.valueProperty().addListener((obs, o, n) -> {
+        torqueSliderValue = new Label(String.format("%.0f N·m", exo.getHipMotor().getMaxTorque()));
+        torqueSliderValue.setStyle("-fx-text-fill: #00e676; -fx-font-family: Consolas;");
+        torqueSlider = new Slider(10, 200, exo.getHipMotor().getMaxTorque());
+        torqueSlider.setShowTickLabels(true);
+        torqueSlider.setMajorTickUnit(50);
+        torqueSlider.valueProperty().addListener((obs, o, n) -> {
             double v = n.doubleValue();
-            tValue.setText(String.format("%.0f N·m", v));
-            for (var m : exo.getAllMotors()) m.setMaxTorque(v);
+            torqueSliderValue.setText(String.format("%.0f N·m", v));
+            exo.setMotorMaxTorque(v);
         });
 
         // Motor max power
         Label pLabel = new Label("Motor P:");
         pLabel.setStyle("-fx-text-fill: #ccc;");
-        Label pValue = new Label(String.format("%.0f W", exo.getHipMotor().getMaxPower()));
-        pValue.setStyle("-fx-text-fill: #00e676; -fx-font-family: Consolas;");
-        Slider pSlider = new Slider(50, 500, exo.getHipMotor().getMaxPower());
-        pSlider.setShowTickLabels(true);
-        pSlider.setMajorTickUnit(100);
-        pSlider.valueProperty().addListener((obs, o, n) -> {
+        powerSliderValue = new Label(String.format("%.0f W", exo.getHipMotor().getMaxPower()));
+        powerSliderValue.setStyle("-fx-text-fill: #00e676; -fx-font-family: Consolas;");
+        powerSlider = new Slider(50, 500, exo.getHipMotor().getMaxPower());
+        powerSlider.setShowTickLabels(true);
+        powerSlider.setMajorTickUnit(100);
+        powerSlider.valueProperty().addListener((obs, o, n) -> {
             double v = n.doubleValue();
-            pValue.setText(String.format("%.0f W", v));
-            for (var m : exo.getAllMotors()) m.setMaxPower(v);
+            powerSliderValue.setText(String.format("%.0f W", v));
+            exo.setMotorMaxPower(v);
         });
 
-        grid.add(tLabel, 0, 0); grid.add(tSlider, 1, 0); grid.add(tValue, 2, 0);
-        grid.add(pLabel, 0, 1); grid.add(pSlider, 1, 1); grid.add(pValue, 2, 1);
+        grid.add(tLabel, 0, 0); grid.add(torqueSlider, 1, 0); grid.add(torqueSliderValue, 2, 0);
+        grid.add(pLabel, 0, 1); grid.add(powerSlider, 1, 1); grid.add(powerSliderValue, 2, 1);
 
         TitledPane pane = new TitledPane("Exoskeleton Parameters", grid);
         pane.setExpanded(false);
-        pane.setStyle("-fx-text-fill: #e0e0e0;");
+        pane.setStyle("-fx-text-fill: #000000;");
         return pane;
     }
 
@@ -202,7 +227,6 @@ public class ControlPanel extends VBox {
     public void updateTime(double time) {
         timeLabel.setText(String.format("Time: %.3f s", time));
         updateStatus();
-        engine.getState().getHumanModel().updateSegmentationDimensions();
     }
 
     private void updateStatus() {
@@ -215,8 +239,27 @@ public class ControlPanel extends VBox {
         }
     }
 
+    public void updateSliders() {
+        var human = engine.getState().getHumanModel();
+        var exo = engine.getState().getExoskeletonModel();
+
+        // Updating sliders
+        heightSlider.setValue(human.getHeight());
+        massSlider.setValue(human.getTotalMass());
+        torqueSlider.setValue(exo.getMotorMaxTorque());
+        powerSlider.setValue(exo.getMotorMaxPower());
+
+        // Updating labels
+        heightSliderValue.setText(String.format("%.2f m", human.getHeight()));
+        massSliderValue.setText(String.format("%.0f kg", human.getTotalMass()));
+        torqueSliderValue.setText(String.format("%.0f N·m", exo.getHipMotor().getMaxTorque()));
+        powerSliderValue.setText(String.format("%.0f W", exo.getHipMotor().getMaxPower()));
+    }
+
     public Button getSideViewButton() { return sideViewBtn; }
     public Button getFrontViewButton() { return frontViewBtn; }
+    public Button getImportBtn() { return importBtn; }
+    public Button getExportBtn() { return exportBtn; }
 
     public void setOnParameterChange(Runnable callback) {
         this.onParameterChange = callback;

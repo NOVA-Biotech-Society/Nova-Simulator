@@ -26,6 +26,9 @@ public class HumanModel {
     private double thighLength;
     private double shankLength;
     private double footLength;
+    double thighMass = totalMass;
+    double shankMass = totalMass;
+    double footMass  = totalMass;
 
     // Pelvis (hip) anchor position in world coordinates
     private double hipAnchorX;
@@ -55,6 +58,7 @@ public class HumanModel {
 
         // Anthropometric ratios (approximate, from Winter's biomechanics)
         updateSegmentationDimensions();
+        updateSegmentationMass();
 
         // Create joints with physiological angle limits (radians)
         // Hip joint: represents the absolute angle of the thigh relative to the vertical.
@@ -148,6 +152,15 @@ public class HumanModel {
         foot.setLength(this.footLength);
     }
 
+    public void updateSegmentationMass(){
+        this.thighMass = totalMass * 0.10;   // ~10% of body mass per thigh
+        this.shankMass = totalMass * 0.047;  // ~4.7% per shank
+        this.footMass  = totalMass * 0.014;  // ~1.4% per foot
+        thigh.setMass(this.thighMass);
+        shank.setMass(this.shankMass);
+        foot.setMass(this.footMass);
+    }
+
 
     // ---- Getters ----
 
@@ -171,6 +184,11 @@ public class HumanModel {
     public void setHeight(double height) {
         this.height = height;
         updateSegmentationDimensions();
+        enforcePositionConstraints();
+    }
+    public void setTotalMass(double totalMass) {
+        this.totalMass = totalMass;
+        updateSegmentationMass();
         enforcePositionConstraints();
     }
 }

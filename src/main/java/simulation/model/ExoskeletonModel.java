@@ -23,6 +23,9 @@ public class ExoskeletonModel {
 
     private final List<ImuSensor> sensors = new ArrayList<>();
 
+    private double motorMaxPower;
+    private double motorMaxTorque;
+
     /**
      * Creates an exoskeleton model that mirrors a human model.
      *
@@ -75,6 +78,10 @@ public class ExoskeletonModel {
         sensors.add(thighIMU);
         sensors.add(shankIMU);
         sensors.add(footIMU);
+
+        //Sets MaxValues variable
+        this.motorMaxPower = motorMaxPower;
+        this.motorMaxTorque = motorMaxTorque;
     }
 
     /** Resets all sensors. */
@@ -104,5 +111,19 @@ public class ExoskeletonModel {
 
     public Motor[] getAllMotors() { return new Motor[]{ hipMotor, kneeMotor, ankleMotor }; }
     public List<ImuSensor> getSensors() { return sensors; }
+
+    public double getMotorMaxPower() {return motorMaxPower;}
+    public void setMotorMaxPower(double motorMaxPower) {
+        this.motorMaxPower = motorMaxPower;
+        for (var m : this.getAllMotors()) m.setMaxPower(this.motorMaxPower);
+
+    }
+
+    public double getMotorMaxTorque() {return motorMaxTorque;}
+    public void setMotorMaxTorque( double motorMaxTorque) {
+        this.motorMaxTorque = motorMaxTorque;
+        for (var m : this.getAllMotors()) m.setMaxTorque(this.motorMaxTorque);
+
+    }
 }
 

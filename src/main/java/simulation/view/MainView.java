@@ -13,9 +13,16 @@ import javafx.scene.shape.Cylinder;
 import javafx.scene.shape.Sphere;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Translate;
+import javafx.stage.FileChooser;
 import simulation.model.*;
 import simulation.physics.SimulationEngine;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.PrintWriter;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -122,6 +129,9 @@ public class MainView extends BorderPane {
 
         controlPanel.getSideViewButton().setOnAction(e -> cameraController.resetToSideView());
         controlPanel.getFrontViewButton().setOnAction(e -> cameraController.resetToFrontView());
+
+        controlPanel.getImportBtn().setOnAction(e -> handleImport());
+        controlPanel.getExportBtn().setOnAction(e -> handleExport());
 
         controlPanel.setOnParameterChange(() -> {
             //forcing the update
@@ -528,6 +538,56 @@ public class MainView extends BorderPane {
             this.type = type;
             this.motor = motor;
             this.sensor = sensor;
+        }
+    }
+    // ====================================================================
+    // CSV IMPORT / EXPORT LOGIC ---
+    // ====================================================================
+    private void handleImport() {
+        FileChooser fc = new FileChooser();
+        fc.setTitle("Import(CSV)");
+        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
+        File file = fc.showOpenDialog(getScene().getWindow());
+        if (file != null) {
+            try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+                String line = br.readLine();
+                if ((line = br.readLine()) != null) {
+                    String[] vals = line.split(",");
+                    HumanModel human = engine.getState().getHumanModel();
+                    ExoskeletonModel exo = engine.getState().getExoskeletonModel();
+                    human.setHeight(Double.parseDouble(vals[0]));
+                    human.setTotalMass(Double.parseDouble(vals[1]));
+                    exo.setMotorMaxTorque(Double.parseDouble(vals[2]));
+                    exo.setMotorMaxPower(Double.parseDouble(vals[3]));
+                    human.enforcePositionConstraints();
+                    updateTransforms(engine.getState());
+                    controlPanel.updateSliders();
+                }
+            } catch (Exception ex) { ex.printStackTrace(); }
+        }
+
+    }
+
+    private void handleExport() {
+        FileChooser fc = new FileChooser();
+        fc.setTitle("Export (CSV)");
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH'h'mm");
+        String timestamp = LocalDateTime.now().format(formatter);
+
+        fc.setInitialFileName("exo_params_" + timestamp + ".csv");
+
+        File file = fc.showSaveDialog(getScene().getWindow());
+        if (file != null) {
+            try (PrintWriter pw = new PrintWriter(file)) {
+                pw.println("Height,Mass,MaxMotorTorque,MaxMotorPower");
+                HumanModel human = engine.getState().getHumanModel();
+                ExoskeletonModel exo = engine.getState().getExoskeletonModel();
+                pw.printf("%.3f,%.3f,%.3f,%.3f\n",
+                        human.getHeight(), human.getTotalMass(), exo.getMotorMaxTorque(), exo.getMotorMaxPower());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
         }
     }
 
