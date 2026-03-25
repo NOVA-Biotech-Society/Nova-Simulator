@@ -407,20 +407,33 @@ public class MainView extends BorderPane {
      * The cylinder's center is at the midpoint, rotated by the segment's angle.
      */
     private void positionCylinder(Cylinder cyl, RigidBodySegment seg) {
-        double px = seg.getPosX();
-        double py = seg.getPosY();
-        double angle = seg.getAngle();
+        double len = seg.getLength() * SCALE;
+        // We negate the angle because JavaFX's Y-axis is inverted (downwards)
+        double angleDeg = -Math.toDegrees(seg.getAngle());
 
-        // Center of the segment in world coords
-        double cx = px + 0.5 * seg.getLength() * Math.sin(angle);
-        double cy = py - 0.5 * seg.getLength() * Math.cos(angle);
+        // 1. Joint/Pivot position (the "ball")
+        double jx = seg.getPosX() * SCALE;
+        double jy = -seg.getPosY() * SCALE; // Y-inversion for JavaFX coordinates
 
+        cyl.setHeight(len);
         cyl.getTransforms().clear();
-        cyl.setHeight(seg.getLength() * SCALE);
-        cyl.getTransforms().addAll(
-                new Translate(cx * SCALE, -cy * SCALE, 0),
-                new Rotate(Math.toDegrees(angle), Rotate.Z_AXIS)
-        );
+
+        // --- TRANSFORMATION ORDER IS KEY (Applied Last to First) ---
+
+        // T3: Move the entire assembly to the joint's world position
+        Translate moveToJoint = new Translate(jx, jy, 0);
+
+        // T2: Rotate around the pivot.
+        // Since T1 has shifted the cylinder, the pivot is now at the top!
+        Rotate rotateAroundTop = new Rotate(angleDeg, 0, 0, 0, Rotate.Z_AXIS);
+
+        // T1: Offset the cylinder downwards by half its length (H/2)
+        // This aligns the "TOP" of the cylinder with the local (0,0,0) origin
+        Translate offsetToTop = new Translate(0, len / 2, 0);
+
+        // Important: addAll order matters. JavaFX applies these in reverse order
+        // to achieve the "Move -> Rotate -> Offset" logic.
+        cyl.getTransforms().addAll(moveToJoint, rotateAroundTop, offsetToTop);
     }
 
     /**

@@ -76,6 +76,7 @@ public class SimulationEngine {
      */
     public void step() {
         double dt = state.getDt();
+        state.getHumanModel().enforcePositionConstraints();
 
         // 1. Compute motor commands from controller
         MotorCommands cmds = controller.computeCommands(state, state.getTime());
@@ -114,6 +115,7 @@ public class SimulationEngine {
             stepCounter = 0;
             Platform.runLater(() -> onStepCallback.accept(state));
         }
+
     }
 
     /** Starts the simulation loop on a background thread. */
