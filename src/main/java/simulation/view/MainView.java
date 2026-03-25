@@ -3,6 +3,8 @@ package simulation.view;
 import javafx.geometry.Orientation;
 import javafx.scene.*;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
@@ -114,10 +116,20 @@ public class MainView extends BorderPane {
                 "-fx-background-color: rgba(0,0,0,0.6); -fx-padding: 4 10 4 10; -fx-background-radius: 4;");
         moduleInfoLabel.setVisible(false);
 
+        // LOGO Overlay
+        Image logoImage = new Image(getClass().getResourceAsStream("/assets/nova_biotech_society_logo.jpg"));
+        ImageView overlayImageView = new ImageView(logoImage);
+        overlayImageView.setFitWidth(120);
+        overlayImageView.setPreserveRatio(true);
+        overlayImageView.setOpacity(0.5);
+
         // Wrap SubScene in a StackPane for overlay
-        javafx.scene.layout.StackPane viewportStack = new javafx.scene.layout.StackPane(subScene, moduleInfoLabel);
+        javafx.scene.layout.StackPane viewportStack = new javafx.scene.layout.StackPane(subScene, overlayImageView, moduleInfoLabel);
         javafx.scene.layout.StackPane.setAlignment(moduleInfoLabel, javafx.geometry.Pos.BOTTOM_LEFT);
         javafx.scene.layout.StackPane.setMargin(moduleInfoLabel, new javafx.geometry.Insets(0, 0, 10, 10));
+
+        javafx.scene.layout.StackPane.setAlignment(overlayImageView, javafx.geometry.Pos.TOP_LEFT);
+        javafx.scene.layout.StackPane.setMargin(overlayImageView, new javafx.geometry.Insets(10, 0, 0, 10));
 
         subScene.widthProperty().bind(viewportStack.widthProperty());
         subScene.heightProperty().bind(viewportStack.heightProperty());
