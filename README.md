@@ -20,7 +20,7 @@ The Nova-Simulator is a 2D physics engine (rendered in 3D) built with **JavaFX**
 
 | Date | Description | Link |
 | :--- | :--- | :--- |
-| **2026-03-25** | **Latest: Constraint Stabilization & UI Overlay** | [Watch on Vimeo](https://vimeo.com/1177131268?share=copy&fl=cl&fe=ci) |
+| **2026-03-25** | **Latest: Constraint Stabilization & Imoport/Export Parameters** | [Watch on Vimeo](https://vimeo.com/1177131268?share=copy&fl=cl&fe=ci) |
 | **2026-03-04** | **Initial: 3D Rendering & Basic Physics** | [Watch on Vimeo](https://vimeo.com/1177130383?share=copy&fl=cl&fe=ci) |
 
 ---
