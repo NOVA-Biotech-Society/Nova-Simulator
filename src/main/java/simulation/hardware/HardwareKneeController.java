@@ -21,6 +21,14 @@ public class HardwareKneeController implements ExoController {
     private double kp = 80.0;
     private double kd = 12.0;
 
+    // Hold gains keep non-selected joints stable when scripted motion is disabled.
+    private double holdKp = 50.0;
+    private double holdKd = 10.0;
+
+    private Double holdHipAngleRad;
+    private Double holdKneeAngleRad;
+    private Double holdAnkleAngleRad;
+
     public HardwareKneeController(ExoController delegate) {
         this.delegate = delegate;
     }
@@ -29,26 +37,48 @@ public class HardwareKneeController implements ExoController {
     public void reset() {
         delegate.reset();
         clearTargetJointAngle();
+        clearHoldTargets();
     }
 
     @Override
     public MotorCommands computeCommands(SimulationState state, double time) {
-        MotorCommands base = useDelegateCommands
-                ? delegate.computeCommands(state, time)
-                : new MotorCommands(0.0, 0.0, 0.0);
-        Double target = targetJointAngleRad.get();
-        if (target == null) {
-            return base;
+        if (useDelegateCommands) {
+            MotorCommands base = delegate.computeCommands(state, time);
+            Double target = targetJointAngleRad.get();
+            if (target == null) {
+                return base;
+            }
+            Joint joint = getJoint(state, controlledJointType);
+            double overrideTorque = kp * (target - joint.getAngle()) + kd * (0 - joint.getAngularVelocity());
+            return switch (controlledJointType) {
+                case HIP -> new MotorCommands(overrideTorque, base.kneeTorque(), base.ankleTorque());
+                case KNEE -> new MotorCommands(base.hipTorque(), overrideTorque, base.ankleTorque());
+                case ANKLE -> new MotorCommands(base.hipTorque(), base.kneeTorque(), overrideTorque);
+            };
         }
 
-        Joint joint = getJoint(state, controlledJointType);
-        double overrideTorque = kp * (target - joint.getAngle()) + kd * (0 - joint.getAngularVelocity());
+        ensureHoldTargets(state);
 
-        return switch (controlledJointType) {
-            case HIP -> new MotorCommands(overrideTorque, base.kneeTorque(), base.ankleTorque());
-            case KNEE -> new MotorCommands(base.hipTorque(), overrideTorque, base.ankleTorque());
-            case ANKLE -> new MotorCommands(base.hipTorque(), base.kneeTorque(), overrideTorque);
-        };
+        Joint hip = state.getHumanModel().getHipJoint();
+        Joint knee = state.getHumanModel().getKneeJoint();
+        Joint ankle = state.getHumanModel().getAnkleJoint();
+
+        double hipTorque = holdTorque(holdHipAngleRad, hip);
+        double kneeTorque = holdTorque(holdKneeAngleRad, knee);
+        double ankleTorque = holdTorque(holdAnkleAngleRad, ankle);
+
+        Double target = targetJointAngleRad.get();
+        if (target != null) {
+            Joint selected = getJoint(state, controlledJointType);
+            double overrideTorque = kp * (target - selected.getAngle()) + kd * (0 - selected.getAngularVelocity());
+            switch (controlledJointType) {
+                case HIP -> hipTorque = overrideTorque;
+                case KNEE -> kneeTorque = overrideTorque;
+                case ANKLE -> ankleTorque = overrideTorque;
+            }
+        }
+
+        return new MotorCommands(hipTorque, kneeTorque, ankleTorque);
     }
 
     @Override
@@ -66,6 +96,9 @@ public class HardwareKneeController implements ExoController {
 
     public void setUseDelegateCommands(boolean useDelegateCommands) {
         this.useDelegateCommands = useDelegateCommands;
+        if (useDelegateCommands) {
+            clearHoldTargets();
+        }
     }
 
     public void setTargetJointAngleRadians(double angleRadians) {
@@ -79,6 +112,28 @@ public class HardwareKneeController implements ExoController {
     public void setGains(double kp, double kd) {
         this.kp = kp;
         this.kd = kd;
+    }
+
+    public void captureHoldTargets(SimulationState state) {
+        holdHipAngleRad = state.getHumanModel().getHipJoint().getAngle();
+        holdKneeAngleRad = state.getHumanModel().getKneeJoint().getAngle();
+        holdAnkleAngleRad = state.getHumanModel().getAnkleJoint().getAngle();
+    }
+
+    private void ensureHoldTargets(SimulationState state) {
+        if (holdHipAngleRad == null || holdKneeAngleRad == null || holdAnkleAngleRad == null) {
+            captureHoldTargets(state);
+        }
+    }
+
+    private void clearHoldTargets() {
+        holdHipAngleRad = null;
+        holdKneeAngleRad = null;
+        holdAnkleAngleRad = null;
+    }
+
+    private double holdTorque(double holdTarget, Joint joint) {
+        return holdKp * (holdTarget - joint.getAngle()) + holdKd * (0 - joint.getAngularVelocity());
     }
 
     private Joint getJoint(SimulationState state, JointType type) {

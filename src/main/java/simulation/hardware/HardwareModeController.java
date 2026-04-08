@@ -68,6 +68,7 @@ public class HardwareModeController {
 
         engine.getState().setAllowHardwareJointLimitExceedance(false);
         hardwareKneeController.setUseDelegateCommands(false);
+        hardwareKneeController.captureHoldTargets(engine.getState());
         engine.setController(hardwareKneeController);
         updateControlledJoint(engine.getState().getHardwareControlledJoint());
         publishStatus("Hardware: Hardware mode active (no scripted motion). Select joint/port then connect");
@@ -75,8 +76,10 @@ public class HardwareModeController {
 
     public void updateControlledJoint(JointType selectedJoint) {
         JointType jointToControl = selectedJoint != null ? selectedJoint : JointType.KNEE;
-        engine.getState().setHardwareControlledJoint(jointToControl);
-        hardwareKneeController.setControlledJointType(jointToControl);
+        // Freeze current posture as hold reference before switching the driven joint.
+        hardwareKneeController.captureHoldTargets(engine.getState());
+         engine.getState().setHardwareControlledJoint(jointToControl);
+         hardwareKneeController.setControlledJointType(jointToControl);
 
         String suffix = serialService.isConnected() ? " (live)" : "";
         publishStatus("Hardware: Controlling joint = " + jointToControl + suffix);
@@ -96,7 +99,8 @@ public class HardwareModeController {
         mapper = new PotentiometerAngleMapper(0, 1023, minAngleDeg, maxAngleDeg);
         smoother.reset();
 
-        updateControlledJoint(jointToControl);
+        hardwareKneeController.captureHoldTargets(engine.getState());
+         updateControlledJoint(jointToControl);
         engine.getState().setAllowHardwareJointLimitExceedance(true);
         hardwareKneeController.clearTargetJointAngle();
 
