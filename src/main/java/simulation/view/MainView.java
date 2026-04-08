@@ -163,8 +163,13 @@ public class MainView extends BorderPane {
             if (selectedMode == SimulationMode.HARDWARE) {
                 controlPanel.setHardwareStatus("Hardware: Select Refresh Ports to scan for Arduino boards");
                 controlPanel.setSerialPorts(List.of());
+                hardwareModeController.updateControlledJoint(controlPanel.getSelectedJointType());
             }
         });
+
+        controlPanel.getJointSelector().setOnAction(e ->
+                hardwareModeController.updateControlledJoint(controlPanel.getSelectedJointType())
+        );
 
         controlPanel.getRefreshPortsBtn().setOnAction(e ->
                 controlPanel.setSerialPorts(hardwareModeController.listPorts())
