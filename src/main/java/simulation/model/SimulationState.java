@@ -18,6 +18,10 @@ public class SimulationState {
 
     private final List<SafetyViolation> safetyViolations = new ArrayList<>();
 
+    // Hardware mode options (default keeps legacy behavior).
+    private volatile boolean allowHardwareJointLimitExceedance;
+    private volatile JointType hardwareControlledJoint = JointType.KNEE;
+
     /**
      * Creates a simulation state.
      *
@@ -38,6 +42,8 @@ public class SimulationState {
         humanModel.resetToStandingPose();
         exoskeletonModel.reset();
         safetyViolations.clear();
+        allowHardwareJointLimitExceedance = false;
+        hardwareControlledJoint = JointType.KNEE;
     }
 
     public void addViolation(SafetyViolation v) { safetyViolations.add(v); }
@@ -55,6 +61,22 @@ public class SimulationState {
     public double getDt() { return dt; }
     public void setDt(double dt) { this.dt = dt; }
     public List<SafetyViolation> getSafetyViolations() { return Collections.unmodifiableList(safetyViolations); }
+
+    public boolean isAllowHardwareJointLimitExceedance() {
+        return allowHardwareJointLimitExceedance;
+    }
+
+    public void setAllowHardwareJointLimitExceedance(boolean allowHardwareJointLimitExceedance) {
+        this.allowHardwareJointLimitExceedance = allowHardwareJointLimitExceedance;
+    }
+
+    public JointType getHardwareControlledJoint() {
+        return hardwareControlledJoint;
+    }
+
+    public void setHardwareControlledJoint(JointType hardwareControlledJoint) {
+        this.hardwareControlledJoint = hardwareControlledJoint;
+    }
 
     /**
      * Record of a safety violation detected during simulation.
@@ -79,4 +101,3 @@ public class SimulationState {
         }
     }
 }
-

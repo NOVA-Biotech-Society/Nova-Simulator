@@ -173,6 +173,7 @@ public class MainView extends BorderPane {
         controlPanel.getConnectHardwareBtn().setOnAction(e ->
                 hardwareModeController.connect(
                         controlPanel.getSelectedSerialPort(),
+                        controlPanel.getSelectedJointType(),
                         controlPanel.getMinHardwareAngleDeg(),
                         controlPanel.getMaxHardwareAngleDeg()
                 )

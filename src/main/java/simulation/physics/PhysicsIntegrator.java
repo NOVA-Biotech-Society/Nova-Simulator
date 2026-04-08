@@ -2,6 +2,7 @@ package simulation.physics;
 
 import simulation.model.HumanModel;
 import simulation.model.Joint;
+import simulation.model.JointType;
 import simulation.model.RigidBodySegment;
 import simulation.model.SimulationState;
 
@@ -143,40 +144,49 @@ public class PhysicsIntegrator {
         kneeJoint.updateFromSegments();
         ankleJoint.updateFromSegments();
 
-        // Clamp hip
-        if (hipJoint.getAngle() < hipJoint.getMinAngle()) {
-            thigh.setAngle(hipJoint.getMinAngle());
-            if (thigh.getAngularVelocity() < 0) thigh.setAngularVelocity(0);
-        } else if (hipJoint.getAngle() > hipJoint.getMaxAngle()) {
-            thigh.setAngle(hipJoint.getMaxAngle());
-            if (thigh.getAngularVelocity() > 0) thigh.setAngularVelocity(0);
+        boolean allowExceed = state.isAllowHardwareJointLimitExceedance();
+        JointType hardwareJoint = state.getHardwareControlledJoint();
+
+        // Clamp hip unless hardware mode explicitly allows hip exceedance.
+        if (!(allowExceed && hardwareJoint == JointType.HIP)) {
+            if (hipJoint.getAngle() < hipJoint.getMinAngle()) {
+                thigh.setAngle(hipJoint.getMinAngle());
+                if (thigh.getAngularVelocity() < 0) thigh.setAngularVelocity(0);
+            } else if (hipJoint.getAngle() > hipJoint.getMaxAngle()) {
+                thigh.setAngle(hipJoint.getMaxAngle());
+                if (thigh.getAngularVelocity() > 0) thigh.setAngularVelocity(0);
+            }
         }
 
-        // Clamp knee
+        // Clamp knee unless hardware mode explicitly allows knee exceedance.
         kneeJoint.updateFromSegments();
-        if (kneeJoint.getAngle() < kneeJoint.getMinAngle()) {
-            shank.setAngle(thigh.getAngle() + kneeJoint.getMinAngle());
-            if (shank.getAngularVelocity() - thigh.getAngularVelocity() < 0) {
-                shank.setAngularVelocity(thigh.getAngularVelocity());
-            }
-        } else if (kneeJoint.getAngle() > kneeJoint.getMaxAngle()) {
-            shank.setAngle(thigh.getAngle() + kneeJoint.getMaxAngle());
-            if (shank.getAngularVelocity() - thigh.getAngularVelocity() > 0) {
-                shank.setAngularVelocity(thigh.getAngularVelocity());
+        if (!(allowExceed && hardwareJoint == JointType.KNEE)) {
+            if (kneeJoint.getAngle() < kneeJoint.getMinAngle()) {
+                shank.setAngle(thigh.getAngle() + kneeJoint.getMinAngle());
+                if (shank.getAngularVelocity() - thigh.getAngularVelocity() < 0) {
+                    shank.setAngularVelocity(thigh.getAngularVelocity());
+                }
+            } else if (kneeJoint.getAngle() > kneeJoint.getMaxAngle()) {
+                shank.setAngle(thigh.getAngle() + kneeJoint.getMaxAngle());
+                if (shank.getAngularVelocity() - thigh.getAngularVelocity() > 0) {
+                    shank.setAngularVelocity(thigh.getAngularVelocity());
+                }
             }
         }
 
-        // Clamp ankle
+        // Clamp ankle unless hardware mode explicitly allows ankle exceedance.
         ankleJoint.updateFromSegments();
-        if (ankleJoint.getAngle() < ankleJoint.getMinAngle()) {
-            foot.setAngle(shank.getAngle() + ankleJoint.getMinAngle());
-            if (foot.getAngularVelocity() - shank.getAngularVelocity() < 0) {
-                foot.setAngularVelocity(shank.getAngularVelocity());
-            }
-        } else if (ankleJoint.getAngle() > ankleJoint.getMaxAngle()) {
-            foot.setAngle(shank.getAngle() + ankleJoint.getMaxAngle());
-            if (foot.getAngularVelocity() - shank.getAngularVelocity() > 0) {
-                foot.setAngularVelocity(shank.getAngularVelocity());
+        if (!(allowExceed && hardwareJoint == JointType.ANKLE)) {
+            if (ankleJoint.getAngle() < ankleJoint.getMinAngle()) {
+                foot.setAngle(shank.getAngle() + ankleJoint.getMinAngle());
+                if (foot.getAngularVelocity() - shank.getAngularVelocity() < 0) {
+                    foot.setAngularVelocity(shank.getAngularVelocity());
+                }
+            } else if (ankleJoint.getAngle() > ankleJoint.getMaxAngle()) {
+                foot.setAngle(shank.getAngle() + ankleJoint.getMaxAngle());
+                if (foot.getAngularVelocity() - shank.getAngularVelocity() > 0) {
+                    foot.setAngularVelocity(shank.getAngularVelocity());
+                }
             }
         }
 
@@ -191,4 +201,3 @@ public class PhysicsIntegrator {
         human.enforcePositionConstraints();
     }
 }
-

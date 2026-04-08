@@ -2,6 +2,8 @@ package simulation.hardware;
 
 import javafx.application.Platform;
 import simulation.controller.ExoController;
+import simulation.model.Joint;
+import simulation.model.JointType;
 import simulation.physics.SimulationEngine;
 
 import java.util.Collections;
@@ -9,7 +11,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Coordinates mode switching, serial lifecycle, value mapping, and knee target updates.
+ * Coordinates mode switching, serial lifecycle, value mapping, and joint target updates.
  */
 public class HardwareModeController {
 
@@ -57,16 +59,18 @@ public class HardwareModeController {
         this.mode = mode;
         if (mode == SimulationMode.DEFAULT) {
             disconnect();
+            engine.getState().setAllowHardwareJointLimitExceedance(false);
             engine.setController(defaultController);
             publishStatus("Hardware: Default mode active");
             return;
         }
 
+        engine.getState().setAllowHardwareJointLimitExceedance(false);
         engine.setController(hardwareKneeController);
-        publishStatus("Hardware: Hardware mode active (select a port and connect)");
+        publishStatus("Hardware: Hardware mode active (select joint/port then connect)");
     }
 
-    public void connect(String systemPortName, double minAngleDeg, double maxAngleDeg) {
+    public void connect(String systemPortName, JointType selectedJoint, double minAngleDeg, double maxAngleDeg) {
         if (mode != SimulationMode.HARDWARE) {
             publishStatus("Hardware: Switch to Hardware mode before connecting");
             return;
@@ -76,22 +80,28 @@ public class HardwareModeController {
             return;
         }
 
+        JointType jointToControl = selectedJoint != null ? selectedJoint : JointType.KNEE;
         mapper = new PotentiometerAngleMapper(0, 1023, minAngleDeg, maxAngleDeg);
         smoother.reset();
-        hardwareKneeController.clearTargetKneeAngle();
+
+        engine.getState().setHardwareControlledJoint(jointToControl);
+        engine.getState().setAllowHardwareJointLimitExceedance(true);
+
+        hardwareKneeController.setControlledJointType(jointToControl);
+        hardwareKneeController.clearTargetJointAngle();
 
         try {
             serialService.connect(systemPortName, DEFAULT_BAUD_RATE, new ArduinoSerialService.Listener() {
                 @Override
                 public void onConnected(String portName) {
                     publishConnection(true);
-                    publishStatus("Hardware: Connected to " + portName + " @9600");
+                    publishStatus("Hardware: Connected to " + portName + " @9600 (joint=" + jointToControl + ")");
                 }
 
                 @Override
                 public void onDisconnected() {
                     publishConnection(false);
-                    hardwareKneeController.clearTargetKneeAngle();
+                    hardwareKneeController.clearTargetJointAngle();
                     publishStatus("Hardware: Disconnected");
                 }
 
@@ -99,10 +109,26 @@ public class HardwareModeController {
                 public void onNumericValue(int value) {
                     double mappedRadians = mapper.mapToRadians(value);
                     double smoothRadians = smoother.addSample(mappedRadians);
-                    hardwareKneeController.setTargetKneeAngleRadians(smoothRadians);
+                    hardwareKneeController.setTargetJointAngleRadians(smoothRadians);
 
-                    double angleDeg = Math.toDegrees(smoothRadians);
-                    publishStatus(String.format("Hardware: raw=%d angle=%.1f deg", value, angleDeg));
+                    Joint selected = getJoint(jointToControl);
+                    StringBuilder status = new StringBuilder(
+                            String.format("Hardware: %s raw=%d target=%.1f deg", jointToControl, value, Math.toDegrees(smoothRadians))
+                    );
+
+                    if (selected != null) {
+                        double actualDeg = Math.toDegrees(selected.getAngle());
+                        status.append(String.format(" actual=%.1f deg", actualDeg));
+
+                        if (smoothRadians > selected.getMaxAngle() || smoothRadians < selected.getMinAngle()) {
+                            status.append(" | WARNING target exceeds joint limits");
+                        }
+                        if (selected.getAngle() > selected.getMaxAngle() || selected.getAngle() < selected.getMinAngle()) {
+                            status.append(" | WARNING actual angle exceeded");
+                        }
+                    }
+
+                    publishStatus(status.toString());
                 }
 
                 @Override
@@ -117,7 +143,7 @@ public class HardwareModeController {
             });
         } catch (Exception ex) {
             publishConnection(false);
-            hardwareKneeController.clearTargetKneeAngle();
+            hardwareKneeController.clearTargetJointAngle();
             publishStatus("Hardware error: " + ex.getMessage());
         }
     }
@@ -125,12 +151,21 @@ public class HardwareModeController {
     public void disconnect() {
         serialService.disconnect();
         smoother.reset();
-        hardwareKneeController.clearTargetKneeAngle();
+        hardwareKneeController.clearTargetJointAngle();
+        engine.getState().setAllowHardwareJointLimitExceedance(false);
         publishConnection(false);
     }
 
     public void shutdown() {
         disconnect();
+    }
+
+    private Joint getJoint(JointType jointType) {
+        return switch (jointType) {
+            case HIP -> engine.getState().getHumanModel().getHipJoint();
+            case KNEE -> engine.getState().getHumanModel().getKneeJoint();
+            case ANKLE -> engine.getState().getHumanModel().getAnkleJoint();
+        };
     }
 
     private void publishStatus(String message) {
