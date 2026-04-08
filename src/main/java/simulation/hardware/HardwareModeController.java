@@ -25,6 +25,8 @@ public class HardwareModeController {
 
     private Consumer<String> statusConsumer = ignored -> { };
     private Consumer<Boolean> connectionConsumer = ignored -> { };
+    private Runnable nextJointRequest = () -> { };
+    private Runnable nextViewModeRequest = () -> { };
 
     private volatile SimulationMode mode = SimulationMode.DEFAULT;
     private volatile PotentiometerAngleMapper mapper = new PotentiometerAngleMapper(0, 1023, 0.0, 120.0);
@@ -43,6 +45,14 @@ public class HardwareModeController {
 
     public void setOnConnectionChanged(Consumer<Boolean> connectionConsumer) {
         this.connectionConsumer = connectionConsumer != null ? connectionConsumer : ignored -> { };
+    }
+
+    public void setOnNextJointRequested(Runnable callback) {
+        this.nextJointRequest = callback != null ? callback : () -> { };
+    }
+
+    public void setOnNextViewModeRequested(Runnable callback) {
+        this.nextViewModeRequest = callback != null ? callback : () -> { };
     }
 
     public List<String> listPorts() {
@@ -109,7 +119,7 @@ public class HardwareModeController {
                 @Override
                 public void onConnected(String portName) {
                     publishConnection(true);
-                    publishStatus("Hardware: Connected to " + portName + " @9600 (joint=" + jointToControl + ")");
+                    publishStatus("Hardware: Connected to " + portName + " @9600 (joint=" + engine.getState().getHardwareControlledJoint() + ")");
                 }
 
                 @Override
@@ -120,14 +130,15 @@ public class HardwareModeController {
                 }
 
                 @Override
-                public void onNumericValue(int value) {
+                public void onPotValue(int value) {
+                    JointType activeJoint = engine.getState().getHardwareControlledJoint();
                     double mappedRadians = mapper.mapToRadians(value);
                     double smoothRadians = smoother.addSample(mappedRadians);
                     hardwareKneeController.setTargetJointAngleRadians(smoothRadians);
 
-                    Joint selected = getJoint(jointToControl);
+                    Joint selected = getJoint(activeJoint);
                     StringBuilder status = new StringBuilder(
-                            String.format("Hardware: %s raw=%d target=%.1f deg", jointToControl, value, Math.toDegrees(smoothRadians))
+                            String.format("Hardware: %s raw=%d target=%.1f deg", activeJoint, value, Math.toDegrees(smoothRadians))
                     );
 
                     if (selected != null) {
@@ -143,6 +154,22 @@ public class HardwareModeController {
                     }
 
                     publishStatus(status.toString());
+                }
+
+                @Override
+                public void onButton1Pressed() {
+                    Platform.runLater(() -> {
+                        nextJointRequest.run();
+                        publishStatus("Hardware: BUTTON_1 -> next joint");
+                    });
+                }
+
+                @Override
+                public void onButton2Pressed() {
+                    Platform.runLater(() -> {
+                        nextViewModeRequest.run();
+                        publishStatus("Hardware: BUTTON_2 -> next view mode");
+                    });
                 }
 
                 @Override

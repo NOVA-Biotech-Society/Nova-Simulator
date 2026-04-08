@@ -142,8 +142,10 @@ public class MainView extends BorderPane {
         dataPanel = new DataPanel();
         chartPanel = new ChartPanel();
 
-        controlPanel.getSideViewButton().setOnAction(e -> cameraController.resetToSideView());
-        controlPanel.getFrontViewButton().setOnAction(e -> cameraController.resetToFrontView());
+        controlPanel.getSideViewButton().setOnAction(e -> cameraController.setViewMode(CameraController.ViewMode.SIDE));
+        controlPanel.getFrontViewButton().setOnAction(e -> cameraController.setViewMode(CameraController.ViewMode.FRONT));
+        controlPanel.getSpinViewButton().setOnAction(e -> cameraController.setViewMode(CameraController.ViewMode.SPIN_360));
+        controlPanel.getCinematicViewButton().setOnAction(e -> cameraController.setViewMode(CameraController.ViewMode.CINEMATIC));
 
         controlPanel.getImportBtn().setOnAction(e -> handleImport());
         controlPanel.getExportBtn().setOnAction(e -> handleExport());
@@ -156,6 +158,8 @@ public class MainView extends BorderPane {
         hardwareModeController = new HardwareModeController(engine, engine.getController());
         hardwareModeController.setOnStatusMessage(controlPanel::setHardwareStatus);
         hardwareModeController.setOnConnectionChanged(controlPanel::setHardwareConnected);
+        hardwareModeController.setOnNextJointRequested(this::cycleJointSelection);
+        hardwareModeController.setOnNextViewModeRequested(this::cycleCameraViewMode);
 
         controlPanel.getModeSelector().setOnAction(e -> {
             SimulationMode selectedMode = controlPanel.getSelectedMode();
@@ -594,6 +598,22 @@ public class MainView extends BorderPane {
         controlPanel.updateTime(state.getTime());
         dataPanel.update(state);
         chartPanel.update(state);
+    }
+
+    private void cycleJointSelection() {
+        ComboBox<JointType> combo = controlPanel.getJointSelector();
+        List<JointType> joints = combo.getItems();
+        if (joints.isEmpty()) {
+            return;
+        }
+        int currentIndex = combo.getSelectionModel().getSelectedIndex();
+        int nextIndex = (currentIndex + 1) % joints.size();
+        combo.getSelectionModel().select(nextIndex);
+        hardwareModeController.updateControlledJoint(combo.getValue());
+    }
+
+    private void cycleCameraViewMode() {
+        cameraController.cycleViewMode();
     }
 
     // ====================================================================

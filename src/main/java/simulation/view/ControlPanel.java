@@ -26,6 +26,8 @@ public class ControlPanel extends VBox {
     private final Button pauseBtn;
     private final Button sideViewBtn;
     private final Button frontViewBtn;
+    private final Button spinViewBtn;
+    private final Button cinematicViewBtn;
     private final Button importBtn;
     private final Button exportBtn;
     private final Slider speedSlider;
@@ -131,10 +133,16 @@ public class ControlPanel extends VBox {
         cameraTitle.setStyle("-fx-text-fill: #e0e0e0; -fx-font-weight: bold;");
         sideViewBtn = createButton("Side View", "#607D8B");
         frontViewBtn = createButton("Front View", "#607D8B");
+        spinViewBtn = createButton("360", "#546E7A");
+        cinematicViewBtn = createButton("Cinematic", "#455A64");
         sideViewBtn.setId("sideViewBtn");
         frontViewBtn.setId("frontViewBtn");
+        spinViewBtn.setId("spinViewBtn");
+        cinematicViewBtn.setId("cinematicViewBtn");
         HBox cameraRow = new HBox(8, sideViewBtn, frontViewBtn);
+        HBox cameraRow2 = new HBox(8, spinViewBtn, cinematicViewBtn);
         cameraRow.setAlignment(Pos.CENTER);
+        cameraRow2.setAlignment(Pos.CENTER);
 
         // --- Import Export Section ---
         Label parametersTitle = new Label("Parameters");
@@ -162,7 +170,7 @@ public class ControlPanel extends VBox {
                 parametersTitle,
                 humanPane, exoPane,
                 importExportRow,
-                cameraTitle, cameraRow
+                cameraTitle, cameraRow, cameraRow2
         );
     }
 
@@ -346,6 +354,8 @@ public class ControlPanel extends VBox {
 
     public Button getSideViewButton() { return sideViewBtn; }
     public Button getFrontViewButton() { return frontViewBtn; }
+    public Button getSpinViewButton() { return spinViewBtn; }
+    public Button getCinematicViewButton() { return cinematicViewBtn; }
     public Button getImportBtn() { return importBtn; }
     public Button getExportBtn() { return exportBtn; }
 

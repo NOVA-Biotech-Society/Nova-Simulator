@@ -21,7 +21,9 @@ public class ArduinoSerialService {
     public interface Listener {
         void onConnected(String portName);
         void onDisconnected();
-        void onNumericValue(int value);
+        void onPotValue(int value);
+        void onButton1Pressed();
+        void onButton2Pressed();
         void onInfo(String message);
         void onError(String message, Exception exception);
     }
@@ -47,7 +49,7 @@ public class ArduinoSerialService {
                 .orElseThrow(() -> new IllegalStateException("Serial port not found: " + systemPortName));
 
         selectedPort.setComPortParameters(baudRate, 8, SerialPort.ONE_STOP_BIT, SerialPort.NO_PARITY);
-        selectedPort.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 0, 0);
+        selectedPort.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 1500, 0);
 
         if (!selectedPort.openPort()) {
             throw new IllegalStateException("Failed to open serial port: " + systemPortName);
@@ -92,34 +94,64 @@ public class ArduinoSerialService {
     private void readLoop(Listener listener) {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(serialPort.getInputStream(), StandardCharsets.US_ASCII))) {
-            String line;
-            while (running.get() && (line = reader.readLine()) != null) {
+            while (running.get()) {
+                String line = reader.readLine();
+                if (line == null) {
+                    if (running.get() && serialPort != null && serialPort.isOpen()) {
+                        continue;
+                    }
+                    break;
+                }
+
                 String trimmed = line.trim();
                 if (trimmed.isEmpty()) {
                     continue;
                 }
 
-                System.out.println("Arduino Raw String: " + trimmed);
-
-                try {
-                    int value = Integer.parseInt(trimmed);
-                    if (value >= 0 && value <= 1023) {
-                        listener.onNumericValue(value);
-                    } else {
-                        listener.onInfo("Ignoring out-of-range value: " + value);
-                    }
-                } catch (NumberFormatException ignored) {
-                    listener.onInfo("Ignoring non-numeric serial line: " + trimmed);
+                if ("BUTTON_1".equals(trimmed)) {
+                    listener.onButton1Pressed();
+                    continue;
                 }
+                if ("BUTTON_2".equals(trimmed)) {
+                    listener.onButton2Pressed();
+                    continue;
+                }
+                if ("START".equals(trimmed)) {
+                    listener.onInfo("Arduino startup banner received");
+                    continue;
+                }
+
+                if (trimmed.startsWith("POT:")) {
+                    parsePotValue(trimmed.substring(4), listener);
+                    continue;
+                }
+
+                // Backward compatible path for older sketches that emit plain numbers.
+                parsePotValue(trimmed, listener);
             }
         } catch (IOException e) {
             if (running.get()) {
                 listener.onError("Serial read failed (device disconnected or stream closed).", e);
             }
         } finally {
+            boolean wasRunning = running.get();
             disconnect();
-            listener.onDisconnected();
+            if (wasRunning) {
+                listener.onDisconnected();
+            }
+        }
+    }
+
+    private void parsePotValue(String raw, Listener listener) {
+        try {
+            int value = Integer.parseInt(raw.trim());
+            if (value >= 0 && value <= 1023) {
+                listener.onPotValue(value);
+            } else {
+                listener.onInfo("Ignoring out-of-range POT value: " + value);
+            }
+        } catch (NumberFormatException ignored) {
+            listener.onInfo("Ignoring unrecognized serial line: " + raw);
         }
     }
 }
-
