@@ -190,9 +190,17 @@ public class MainView extends BorderPane {
         controlPanel.setSerialPorts(List.of());
         controlPanel.setHardwareStatus("Hardware: Idle");
 
+        dataPanel.getClearWarningsButton().setOnAction(e -> {
+            engine.getState().clearSafetyViolations();
+            dataPanel.update(engine.getState());
+        });
+
         // Right panel: tabbed
         TabPane tabPane = new TabPane();
-        Tab controlTab = new Tab("Controls", controlPanel);
+        ScrollPane controlScroll = new ScrollPane(controlPanel);
+        controlScroll.setFitToWidth(true);
+        controlScroll.setStyle("-fx-background-color: #2b2b2b;");
+        Tab controlTab = new Tab("Controls", controlScroll);
         controlTab.setClosable(false);
 
         ScrollPane dataScroll = new ScrollPane(dataPanel);

@@ -48,7 +48,11 @@ public class SimulationState {
 
     public void addViolation(SafetyViolation v) { safetyViolations.add(v); }
     public void clearCurrentViolations() {
-        // Keep history but could filter by time if needed
+        clearSafetyViolations();
+    }
+
+    public void clearSafetyViolations() {
+        safetyViolations.clear();
     }
 
     // ---- Getters & setters ----

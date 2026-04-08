@@ -36,6 +36,7 @@ public class DataPanel extends VBox {
 
     // Safety warnings
     private final ListView<String> warningsList = new ListView<>();
+    private final Button clearWarningsBtn = new Button("Clear Warnings");
 
     public DataPanel() {
         setSpacing(6);
@@ -76,8 +77,9 @@ public class DataPanel extends VBox {
         warningsTitle.setStyle("-fx-text-fill: #ff5722; -fx-font-weight: bold; -fx-font-size: 13px;");
         warningsList.setPrefHeight(120);
         warningsList.setStyle("-fx-background-color: #1e1e1e; -fx-text-fill: #ff5722;");
+        clearWarningsBtn.setStyle("-fx-background-color: #6d4c41; -fx-text-fill: white; -fx-font-size: 11px;");
 
-        getChildren().addAll(anglesPane, torquesPane, omegaPane, imuPane, warningsTitle, warningsList);
+        getChildren().addAll(anglesPane, torquesPane, omegaPane, imuPane, warningsTitle, warningsList, clearWarningsBtn);
     }
 
     /**
@@ -114,13 +116,17 @@ public class DataPanel extends VBox {
 
         // Safety warnings (show last 20)
         List<SimulationState.SafetyViolation> violations = state.getSafetyViolations();
+        warningsList.getItems().clear();
         if (!violations.isEmpty()) {
-            warningsList.getItems().clear();
             int start = Math.max(0, violations.size() - 20);
             for (int i = start; i < violations.size(); i++) {
                 warningsList.getItems().add(violations.get(i).toString());
             }
         }
+    }
+
+    public Button getClearWarningsButton() {
+        return clearWarningsBtn;
     }
 
     /** Clears all displayed values. */
@@ -178,5 +184,4 @@ public class DataPanel extends VBox {
         return pane;
     }
 }
-
 
