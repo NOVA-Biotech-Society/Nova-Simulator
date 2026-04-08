@@ -161,9 +161,22 @@ public class MainView extends BorderPane {
             SimulationMode selectedMode = controlPanel.getSelectedMode();
             hardwareModeController.setMode(selectedMode);
             if (selectedMode == SimulationMode.HARDWARE) {
-                controlPanel.setHardwareStatus("Hardware: Select Refresh Ports to scan for Arduino boards");
-                controlPanel.setSerialPorts(List.of());
                 hardwareModeController.updateControlledJoint(controlPanel.getSelectedJointType());
+
+                List<String> ports = hardwareModeController.listPorts();
+                controlPanel.setSerialPorts(ports);
+
+                if (!ports.isEmpty()) {
+                    // Auto-connect to the first detected port when entering Hardware Mode.
+                    hardwareModeController.connect(
+                            ports.get(0),
+                            controlPanel.getSelectedJointType(),
+                            controlPanel.getMinHardwareAngleDeg(),
+                            controlPanel.getMaxHardwareAngleDeg()
+                    );
+                } else {
+                    controlPanel.setHardwareStatus("Hardware: No ports available for auto-connect");
+                }
             }
         });
 
