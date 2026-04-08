@@ -6,7 +6,6 @@ import simulation.physics.SimulationEngine;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.function.Consumer;
 
 /**
@@ -45,11 +44,6 @@ public class HardwareModeController {
     }
 
     public List<String> listPorts() {
-        if (!isSerialRuntimeSupported()) {
-            publishStatus(unsupportedRuntimeMessage());
-            return Collections.emptyList();
-        }
-
         List<String> ports = serialService.listAvailablePorts();
         if (ports.isEmpty()) {
             publishStatus("Hardware: No serial ports found");
@@ -75,10 +69,6 @@ public class HardwareModeController {
     public void connect(String systemPortName, double minAngleDeg, double maxAngleDeg) {
         if (mode != SimulationMode.HARDWARE) {
             publishStatus("Hardware: Switch to Hardware mode before connecting");
-            return;
-        }
-        if (!isSerialRuntimeSupported()) {
-            publishStatus(unsupportedRuntimeMessage());
             return;
         }
         if (systemPortName == null || systemPortName.isBlank()) {
@@ -149,23 +139,5 @@ public class HardwareModeController {
 
     private void publishConnection(boolean connected) {
         Platform.runLater(() -> connectionConsumer.accept(connected));
-    }
-
-    private boolean isSerialRuntimeSupported() {
-        // Windows ARM64 + x86 JVM emulation is a known unstable combination for native serial bindings.
-        String jvmArch = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
-        String osName = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-        String envArch = System.getenv().getOrDefault("PROCESSOR_ARCHITECTURE", "").toLowerCase(Locale.ROOT);
-        String envArchWow64 = System.getenv().getOrDefault("PROCESSOR_ARCHITEW6432", "").toLowerCase(Locale.ROOT);
-
-        boolean isWindows = osName.contains("win");
-        boolean jvmIsX86 = "x86".equals(jvmArch) || "i386".equals(jvmArch);
-        boolean osIsArm64 = envArch.contains("arm64") || envArchWow64.contains("arm64");
-
-        return !(isWindows && jvmIsX86 && osIsArm64);
-    }
-
-    private String unsupportedRuntimeMessage() {
-        return "Hardware: unsupported runtime (x86 JVM on Windows ARM64). Use ARM64 or x64 Liberica 21 in IntelliJ SDK/Runner.";
     }
 }
