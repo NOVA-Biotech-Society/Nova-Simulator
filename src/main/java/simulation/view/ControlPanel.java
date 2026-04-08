@@ -111,8 +111,8 @@ public class ControlPanel extends VBox {
         connectHardwareBtn = createButton("Connect", "#2E7D32");
         disconnectHardwareBtn = createButton("Disconnect", "#C62828");
 
-        minAngleSpinner = createAngleSpinner(0.0);
-        maxAngleSpinner = createAngleSpinner(120.0);
+        minAngleSpinner = createAngleSpinner(-90.0);
+        maxAngleSpinner = createAngleSpinner(90.0);
 
         hardwareStatusLabel = new Label("Hardware: Idle");
         hardwareStatusLabel.setStyle("-fx-text-fill: #90CAF9; -fx-font-size: 11px;");
@@ -206,7 +206,8 @@ public class ControlPanel extends VBox {
     }
 
     private Spinner<Double> createAngleSpinner(double defaultValue) {
-        Spinner<Double> spinner = new Spinner<>(0.0, 180.0, defaultValue, 1.0);
+        // Support bidirectional joint control (e.g., -90..90) instead of only positive angles.
+        Spinner<Double> spinner = new Spinner<>(-180.0, 180.0, defaultValue, 1.0);
         spinner.setEditable(true);
         spinner.setPrefWidth(100);
         return spinner;
