@@ -16,6 +16,7 @@ public class HardwareKneeController implements ExoController {
     private final ExoController delegate;
     private final AtomicReference<Double> targetJointAngleRad = new AtomicReference<>(null);
     private volatile JointType controlledJointType = JointType.KNEE;
+    private volatile boolean useDelegateCommands = true;
 
     private double kp = 80.0;
     private double kd = 12.0;
@@ -32,7 +33,9 @@ public class HardwareKneeController implements ExoController {
 
     @Override
     public MotorCommands computeCommands(SimulationState state, double time) {
-        MotorCommands base = delegate.computeCommands(state, time);
+        MotorCommands base = useDelegateCommands
+                ? delegate.computeCommands(state, time)
+                : new MotorCommands(0.0, 0.0, 0.0);
         Double target = targetJointAngleRad.get();
         if (target == null) {
             return base;
@@ -59,6 +62,10 @@ public class HardwareKneeController implements ExoController {
 
     public JointType getControlledJointType() {
         return controlledJointType;
+    }
+
+    public void setUseDelegateCommands(boolean useDelegateCommands) {
+        this.useDelegateCommands = useDelegateCommands;
     }
 
     public void setTargetJointAngleRadians(double angleRadians) {

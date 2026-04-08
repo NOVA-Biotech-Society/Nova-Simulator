@@ -60,14 +60,16 @@ public class HardwareModeController {
         if (mode == SimulationMode.DEFAULT) {
             disconnect();
             engine.getState().setAllowHardwareJointLimitExceedance(false);
+            hardwareKneeController.setUseDelegateCommands(true);
             engine.setController(defaultController);
             publishStatus("Hardware: Default mode active");
             return;
         }
 
         engine.getState().setAllowHardwareJointLimitExceedance(false);
+        hardwareKneeController.setUseDelegateCommands(false);
         engine.setController(hardwareKneeController);
-        publishStatus("Hardware: Hardware mode active (select joint/port then connect)");
+        publishStatus("Hardware: Hardware mode active (no scripted motion). Select joint/port then connect");
     }
 
     public void connect(String systemPortName, JointType selectedJoint, double minAngleDeg, double maxAngleDeg) {
