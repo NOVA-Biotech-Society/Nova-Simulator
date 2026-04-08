@@ -16,6 +16,8 @@ import javafx.scene.shape.Sphere;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Translate;
 import javafx.stage.FileChooser;
+import simulation.hardware.HardwareModeController;
+import simulation.hardware.SimulationMode;
 import simulation.model.*;
 import simulation.physics.SimulationEngine;
 
@@ -72,6 +74,7 @@ public class MainView extends BorderPane {
     private SubScene subScene;
 
     private final SimulationEngine engine;
+    private final HardwareModeController hardwareModeController;
 
     // Materials for hover state (slightly brighter versions)
     private final PhongMaterial motorHoverMaterial = new PhongMaterial(Color.LIGHTSALMON);
@@ -149,6 +152,37 @@ public class MainView extends BorderPane {
             //forcing the update
             updateTransforms(engine.getState());
         });
+
+        hardwareModeController = new HardwareModeController(engine, engine.getController());
+        hardwareModeController.setOnStatusMessage(controlPanel::setHardwareStatus);
+        hardwareModeController.setOnConnectionChanged(controlPanel::setHardwareConnected);
+
+        controlPanel.getModeSelector().setOnAction(e -> {
+            SimulationMode selectedMode = controlPanel.getSelectedMode();
+            hardwareModeController.setMode(selectedMode);
+            if (selectedMode == SimulationMode.HARDWARE) {
+                controlPanel.setHardwareStatus("Hardware: Select Refresh Ports to scan for Arduino boards");
+                controlPanel.setSerialPorts(List.of());
+            }
+        });
+
+        controlPanel.getRefreshPortsBtn().setOnAction(e ->
+                controlPanel.setSerialPorts(hardwareModeController.listPorts())
+        );
+
+        controlPanel.getConnectHardwareBtn().setOnAction(e ->
+                hardwareModeController.connect(
+                        controlPanel.getSelectedSerialPort(),
+                        controlPanel.getMinHardwareAngleDeg(),
+                        controlPanel.getMaxHardwareAngleDeg()
+                )
+        );
+
+        controlPanel.getDisconnectHardwareBtn().setOnAction(e -> hardwareModeController.disconnect());
+
+        // Do not query serial ports at startup: keep Default Mode launch path free of serial-native initialization.
+        controlPanel.setSerialPorts(List.of());
+        controlPanel.setHardwareStatus("Hardware: Idle");
 
         // Right panel: tabbed
         TabPane tabPane = new TabPane();
@@ -619,6 +653,10 @@ public class MainView extends BorderPane {
     // ====================================================================
     // Getters
     // ====================================================================
+
+    public void shutdown() {
+        hardwareModeController.shutdown();
+    }
 
     public ControlPanel getControlPanel() { return controlPanel; }
     public DataPanel getDataPanel() { return dataPanel; }

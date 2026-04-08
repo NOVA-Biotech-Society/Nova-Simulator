@@ -33,6 +33,7 @@ import simulation.view.MainView;
 public class MainApp extends Application {
 
     private SimulationEngine engine;
+    private MainView mainView;
 
     @Override
     public void start(Stage primaryStage) {
@@ -59,7 +60,7 @@ public class MainApp extends Application {
         engine = new SimulationEngine(state, controller);
 
         // 6. Build UI
-        MainView mainView = new MainView(engine);
+        mainView = new MainView(engine);
 
         // 7. Create scene and show
         Scene scene = new Scene(mainView, 1280, 720);
@@ -81,6 +82,9 @@ public class MainApp extends Application {
         if (engine != null) {
             engine.pause();
         }
+        if (mainView != null) {
+            mainView.shutdown();
+        }
         System.out.println("Nova Simulator stopped.");
     }
 
@@ -88,4 +92,3 @@ public class MainApp extends Application {
         launch(args);
     }
 }
-

@@ -1,13 +1,16 @@
 package simulation.view;
 
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
+import simulation.hardware.SimulationMode;
 import simulation.physics.SimulationEngine;
+
+import java.util.List;
 
 /**
  * UI panel with simulation controls: Play, Pause, Step, Reset, speed slider,
@@ -27,6 +30,16 @@ public class ControlPanel extends VBox {
     private final Slider speedSlider;
     private Slider heightSlider, massSlider, torqueSlider, powerSlider;
     private Label heightSliderValue, massSliderValue, torqueSliderValue, powerSliderValue;
+
+    private final ComboBox<SimulationMode> modeSelector;
+    private final ComboBox<String> serialPortSelector;
+    private final Button refreshPortsBtn;
+    private final Button connectHardwareBtn;
+    private final Button disconnectHardwareBtn;
+    private final Spinner<Double> minAngleSpinner;
+    private final Spinner<Double> maxAngleSpinner;
+    private final Label hardwareStatusLabel;
+
     // Callbacks for parameter changes (rebuild model)
     private Runnable onParameterChange;
 
@@ -80,6 +93,27 @@ public class ControlPanel extends VBox {
             speedLabel.setText(String.format("Speed: %.1fx", speed));
         });
 
+        modeSelector = new ComboBox<>(FXCollections.observableArrayList(SimulationMode.values()));
+        modeSelector.setValue(SimulationMode.DEFAULT);
+        modeSelector.setPrefWidth(220);
+
+        serialPortSelector = new ComboBox<>();
+        serialPortSelector.setPromptText("Select serial port");
+        serialPortSelector.setPrefWidth(220);
+
+        refreshPortsBtn = createButton("Refresh Ports", "#546E7A");
+        connectHardwareBtn = createButton("Connect", "#2E7D32");
+        disconnectHardwareBtn = createButton("Disconnect", "#C62828");
+
+        minAngleSpinner = createAngleSpinner(0.0);
+        maxAngleSpinner = createAngleSpinner(120.0);
+
+        hardwareStatusLabel = new Label("Hardware: Idle");
+        hardwareStatusLabel.setStyle("-fx-text-fill: #90CAF9; -fx-font-size: 11px;");
+        disconnectHardwareBtn.setDisable(true);
+
+        TitledPane modePane = createModePane();
+
         // --- Human parameters ---
         TitledPane humanPane = createHumanParameterPane();
 
@@ -117,12 +151,55 @@ public class ControlPanel extends VBox {
                 sep1,
                 transportRow1, transportRow2,
                 speedLabel, speedSlider,
+                modePane,
                 sep2,
                 parametersTitle,
                 humanPane, exoPane,
                 importExportRow,
                 cameraTitle, cameraRow
         );
+    }
+
+    private TitledPane createModePane() {
+        GridPane grid = new GridPane();
+        grid.setHgap(8);
+        grid.setVgap(6);
+        grid.setPadding(new Insets(4));
+
+        Label modeLabel = new Label("Mode:");
+        modeLabel.setStyle("-fx-text-fill: #ccc;");
+        Label portLabel = new Label("Port:");
+        portLabel.setStyle("-fx-text-fill: #ccc;");
+        Label minLabel = new Label("Min Angle (deg):");
+        minLabel.setStyle("-fx-text-fill: #ccc;");
+        Label maxLabel = new Label("Max Angle (deg):");
+        maxLabel.setStyle("-fx-text-fill: #ccc;");
+
+        HBox connectionButtons = new HBox(8, refreshPortsBtn, connectHardwareBtn, disconnectHardwareBtn);
+        connectionButtons.setAlignment(Pos.CENTER_LEFT);
+
+        grid.add(modeLabel, 0, 0);
+        grid.add(modeSelector, 1, 0, 2, 1);
+        grid.add(portLabel, 0, 1);
+        grid.add(serialPortSelector, 1, 1, 2, 1);
+        grid.add(connectionButtons, 1, 2, 2, 1);
+        grid.add(minLabel, 0, 3);
+        grid.add(minAngleSpinner, 1, 3);
+        grid.add(maxLabel, 0, 4);
+        grid.add(maxAngleSpinner, 1, 4);
+        grid.add(hardwareStatusLabel, 0, 5, 3, 1);
+
+        TitledPane pane = new TitledPane("Mode & Hardware", grid);
+        pane.setExpanded(true);
+        pane.setStyle("-fx-text-fill: #000000;");
+        return pane;
+    }
+
+    private Spinner<Double> createAngleSpinner(double defaultValue) {
+        Spinner<Double> spinner = new Spinner<>(0.0, 180.0, defaultValue, 1.0);
+        spinner.setEditable(true);
+        spinner.setPrefWidth(100);
+        return spinner;
     }
 
     private TitledPane createHumanParameterPane() {
@@ -261,6 +338,35 @@ public class ControlPanel extends VBox {
     public Button getImportBtn() { return importBtn; }
     public Button getExportBtn() { return exportBtn; }
 
+    public ComboBox<SimulationMode> getModeSelector() { return modeSelector; }
+    public ComboBox<String> getSerialPortSelector() { return serialPortSelector; }
+    public Button getRefreshPortsBtn() { return refreshPortsBtn; }
+    public Button getConnectHardwareBtn() { return connectHardwareBtn; }
+    public Button getDisconnectHardwareBtn() { return disconnectHardwareBtn; }
+
+    public SimulationMode getSelectedMode() { return modeSelector.getValue(); }
+    public String getSelectedSerialPort() { return serialPortSelector.getValue(); }
+    public double getMinHardwareAngleDeg() { return minAngleSpinner.getValue(); }
+    public double getMaxHardwareAngleDeg() { return maxAngleSpinner.getValue(); }
+
+    public void setSerialPorts(List<String> ports) {
+        serialPortSelector.setItems(FXCollections.observableArrayList(ports));
+        if (!ports.isEmpty()) {
+            serialPortSelector.getSelectionModel().selectFirst();
+        }
+    }
+
+    public void setHardwareStatus(String text) {
+        hardwareStatusLabel.setText(text);
+    }
+
+    public void setHardwareConnected(boolean connected) {
+        connectHardwareBtn.setDisable(connected);
+        disconnectHardwareBtn.setDisable(!connected);
+        serialPortSelector.setDisable(connected);
+        refreshPortsBtn.setDisable(connected);
+    }
+
     public void setOnParameterChange(Runnable callback) {
         this.onParameterChange = callback;
     }
@@ -275,7 +381,3 @@ public class ControlPanel extends VBox {
         return btn;
     }
 }
-
-
-
-
