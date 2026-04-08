@@ -47,7 +47,7 @@ public class ArduinoSerialService {
                 .orElseThrow(() -> new IllegalStateException("Serial port not found: " + systemPortName));
 
         selectedPort.setComPortParameters(baudRate, 8, SerialPort.ONE_STOP_BIT, SerialPort.NO_PARITY);
-        selectedPort.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 500, 0);
+        selectedPort.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 0, 0);
 
         if (!selectedPort.openPort()) {
             throw new IllegalStateException("Failed to open serial port: " + systemPortName);
@@ -98,6 +98,8 @@ public class ArduinoSerialService {
                 if (trimmed.isEmpty()) {
                     continue;
                 }
+
+                System.out.println("Arduino Raw String: " + trimmed);
 
                 try {
                     int value = Integer.parseInt(trimmed);
