@@ -96,6 +96,8 @@ public class MainView extends BorderPane {
 
         subScene = new SubScene(root3D, 800, 600, true, SceneAntialiasing.BALANCED);
         subScene.setFill(Color.web("#1a1a2e"));
+//        subScene.setFill(Color.web("#404072"));
+
 
         // Camera
         cameraController = new CameraController(subScene);
@@ -576,7 +578,7 @@ public class MainView extends BorderPane {
 
     private Group createFloorGrid() {
         Group grid = new Group();
-        PhongMaterial gridMat = new PhongMaterial(Color.web("#333333"));
+        PhongMaterial gridMat = new PhongMaterial(Color.web("#737373"));
         for (int i = -5; i <= 5; i++) {
             Box lineX = new Box(10 * SCALE, 0.002, 0.002);
             lineX.setTranslateZ(i * 0.2 * SCALE);
