@@ -1,10 +1,13 @@
 package simulation.view;
 
 import javafx.geometry.Insets;
+import javafx.scene.Cursor;
+import javafx.scene.Node;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.VBox;
 import simulation.model.SimulationState;
 
@@ -55,6 +58,7 @@ public class ChartPanel extends VBox {
         angleChart.setAnimated(false);
         angleChart.getData().addAll(hipAngleSeries, kneeAngleSeries, ankleAngleSeries);
         angleChart.setStyle("-fx-background-color: #1e1e1e;");
+        angleChart.lookupAll(".chart-legend-item").forEach(node -> node.setStyle("-fx-text-fill: #e0e0e0;"));
 
         // --- Motor Torque Chart ---
         hipTorqueSeries.setName("Hip");
@@ -77,6 +81,7 @@ public class ChartPanel extends VBox {
         torqueChart.setAnimated(false);
         torqueChart.getData().addAll(hipTorqueSeries, kneeTorqueSeries, ankleTorqueSeries);
         torqueChart.setStyle("-fx-background-color: #1e1e1e;");
+        torqueChart.lookupAll(".chart-legend-item").forEach(node -> node.setStyle("-fx-text-fill: #e0e0e0;"));
 
         // --- Toggle checkboxes ---
         CheckBox showAngles = new CheckBox("Show Angles");
@@ -90,6 +95,7 @@ public class ChartPanel extends VBox {
         showTorques.selectedProperty().addListener((obs, o, n) -> torqueChart.setVisible(n));
 
         getChildren().addAll(showAngles, angleChart, showTorques, torqueChart);
+
     }
 
     /**

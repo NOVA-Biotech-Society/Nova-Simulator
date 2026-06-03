@@ -25,12 +25,12 @@ import simulation.model.SimulationState;
 public class ScriptedProstrationController implements ExoController {
 
     // PD gains
-    private double kpHip   = 80.0;
-    private double kdHip   = 15.0;
-    private double kpKnee  = 60.0;
-    private double kdKnee  = 12.0;
-    private double kpAnkle = 40.0;
-    private double kdAnkle = 8.0;
+    private double kpHip   = 50.0;
+    private double kdHip   = 20.0;
+    private double kpKnee  = 45.0;
+    private double kdKnee  = 15.0;
+    private double kpAnkle = 45.0;
+    private double kdAnkle = 5.0;
 
     // Keyframe times (seconds)
     private static final double T_STAND_START  = 0.0;
@@ -41,41 +41,94 @@ public class ScriptedProstrationController implements ExoController {
     private static final double T_CYCLE_END    = 8.0;
 
     // Target angles (radians) for prostration pose
-    private static final double HIP_PROSTRATE   = Math.toRadians(90);
-    private static final double KNEE_PROSTRATE   = Math.toRadians(120);
-    private static final double ANKLE_PROSTRATE  = Math.toRadians(20);
+    private static final double HIP_PROSTRATE   = Math.toRadians(-28);
+    private static final double KNEE_PROSTRATE   = Math.toRadians(110);
+    private static final double ANKLE_PROSTRATE  = Math.toRadians(-40);
 
     // Standing pose (all near zero)
     private static final double HIP_STANDING   = Math.toRadians(0);
     private static final double KNEE_STANDING  = Math.toRadians(0);
     private static final double ANKLE_STANDING = Math.toRadians(0);
 
+    // History of angles to estimate omega (angular velocity)
+    private double lastHipAngle = 0.0;
+    private double lastKneeAngle = 0.0;
+    private double lastAnkleAngle = 0.0;
+
+    // History of torques for the low-pass filters
+    private double lastHipTorque = 0.0;
+    private double lastKneeTorque = 0.0;
+    private double lastAnkleTorque = 0.0;
+
     @Override
     public void reset() {
         // No internal state to reset for the scripted controller
+        this.lastAnkleTorque = 0.0;
     }
 
     @Override
     public MotorCommands computeCommands(SimulationState state, double time) {
-        // Compute target angles based on the current phase
+        double dt = state.getDt();
+
+        // 1. Compute target angles based on the current phase
         double hipTarget   = computeTarget(time, HIP_STANDING, HIP_PROSTRATE);
         double kneeTarget  = computeTarget(time, KNEE_STANDING, KNEE_PROSTRATE);
         double ankleTarget = computeTarget(time, ANKLE_STANDING, ANKLE_PROSTRATE);
 
-        // Get current joint states
+        // 2. Get current joint states and angles
         Joint knee  = state.getHumanModel().getKneeJoint();
         Joint ankle = state.getHumanModel().getAnkleJoint();
 
-        // PD control: torque = Kp*(target - current) + Kd*(0 - omega)
-        // For hip, the "angle" is the thigh's absolute angle
-        double hipAngle = state.getHumanModel().getThigh().getAngle();
-        double hipOmega = state.getHumanModel().getThigh().getAngularVelocity();
-        double hipTorque = kpHip * (hipTarget - hipAngle) + kdHip * (0 - hipOmega);
+        double currentHipAngle   = state.getHumanModel().getThigh().getAngle();
+        double currentKneeAngle  = knee.getAngle();
+        double currentAnkleAngle = ankle.getAngle();
 
-        double kneeTorque = kpKnee * (kneeTarget - knee.getAngle()) + kdKnee * (0 - knee.getAngularVelocity());
-        double ankleTorque = kpAnkle * (ankleTarget - ankle.getAngle()) + kdAnkle * (0 - ankle.getAngularVelocity());
+        // 3. Compute normalized angle errors (prevents 360-degree spasms)
+        double hipError   = normalizeAngle(hipTarget - currentHipAngle);
+        double kneeError  = normalizeAngle(kneeTarget - currentKneeAngle);
+        double ankleError = normalizeAngle(ankleTarget - currentAnkleAngle);
+
+        // 4. Clean estimation of angular velocities (bypasses ground constraint noise)
+        double estimatedHipOmega   = (currentHipAngle - this.lastHipAngle) / dt;
+        double estimatedKneeOmega  = (currentKneeAngle - this.lastKneeAngle) / dt;
+        double estimatedAnkleOmega = (currentAnkleAngle - this.lastAnkleAngle) / dt;
+
+        // Save current angles for the next frame
+        this.lastHipAngle   = currentHipAngle;
+        this.lastKneeAngle  = currentKneeAngle;
+        this.lastAnkleAngle = currentAnkleAngle;
+
+        // 5. Compute raw PD torques using the estimated velocities
+        double rawHipTorque   = kpHip * hipError + kdHip * (0.0 - estimatedHipOmega);
+        double rawKneeTorque  = kpKnee * kneeError + kdKnee * (0.0 - estimatedKneeOmega);
+        double rawAnkleTorque = kpAnkle * ankleError + kdAnkle * (0.0 - estimatedAnkleOmega);
+
+        // 6. Apply low-pass filter to ALL torques (smoothes out transitions)
+        double smoothingFactor = 0.15;
+        double hipTorque   = lastHipTorque + smoothingFactor * (rawHipTorque - lastHipTorque);
+        double kneeTorque  = lastKneeTorque + smoothingFactor * (rawKneeTorque - lastKneeTorque);
+        double ankleTorque = lastAnkleTorque + smoothingFactor * (rawAnkleTorque - lastAnkleTorque);
+
+        // Save filtered torques for the next frame
+        this.lastHipTorque   = hipTorque;
+        this.lastKneeTorque  = kneeTorque;
+        this.lastAnkleTorque = ankleTorque;
+
+        // 7. Safety clamping (prevents extreme torque spikes to protect the model)
+        double MAX_TORQUE = 60.0;
+        double MAX_ANKLE_TORQUE = 20.0; // Kept lower to let the foot naturally adapt to the floor
+
+        hipTorque   = Math.max(-MAX_TORQUE, Math.min(MAX_TORQUE, hipTorque));
+        kneeTorque  = Math.max(-MAX_TORQUE, Math.min(MAX_TORQUE, kneeTorque));
+        ankleTorque = Math.max(-MAX_ANKLE_TORQUE, Math.min(MAX_ANKLE_TORQUE, ankleTorque));
 
         return new MotorCommands(hipTorque, kneeTorque, ankleTorque);
+    }
+
+    private double normalizeAngle(double angle) {
+        while (angle > Math.PI)  angle -= 2.0 * Math.PI;
+        while (angle < -Math.PI) angle += 2.0 * Math.PI;
+        return angle;
     }
 
     /**
@@ -85,6 +138,11 @@ public class ScriptedProstrationController implements ExoController {
     private double computeTarget(double time, double standingAngle, double prostrateAngle) {
         // Wrap time into the cycle
         double t = time % T_CYCLE_END;
+
+//        System.out.println(standingAngle);
+//        System.out.println(prostrateAngle);
+//        System.out.println("---");
+
 
         if (t < T_STAND_START + 1.0) {
             // Initial standing phase
@@ -112,6 +170,7 @@ public class ScriptedProstrationController implements ExoController {
      */
     private double smoothStep(double t) {
         t = Math.max(0, Math.min(1, t));
+//        System.out.println( 0.5 * (1.0 - Math.cos(Math.PI * t)));
         return 0.5 * (1.0 - Math.cos(Math.PI * t));
     }
 

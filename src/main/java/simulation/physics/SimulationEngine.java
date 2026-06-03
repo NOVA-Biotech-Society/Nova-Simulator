@@ -6,6 +6,8 @@ import simulation.controller.MotorCommands;
 import simulation.model.ExoskeletonModel;
 import simulation.model.Motor;
 import simulation.model.SimulationState;
+import simulation.model.RigidBodySegment;
+import simulation.model.HumanModel;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -17,20 +19,10 @@ import java.util.function.Consumer;
 /**
  * The main simulation engine that drives the physics loop.
  * <p>
- * Runs on a background thread using a {@link ScheduledExecutorService} and posts
- * state updates to the JavaFX Application Thread via {@link Platform#runLater}.
+ * This version anchors the FOOT to the ground. Instead of allowing the foot to move
+ * based on the hip, it measures how much the foot moved locally, inverts that displacement,
+ * and shifts the hip anchor. This makes the foot the absolute world anchor point.
  * </p>
- *
- * <h3>Loop structure (each step):</h3>
- * <ol>
- *   <li>Compute motor commands from the controller.</li>
- *   <li>Apply motor commands to joints.</li>
- *   <li>Integrate physics (forces, velocities, positions).</li>
- *   <li>Update sensors.</li>
- *   <li>Evaluate safety.</li>
- *   <li>Advance time.</li>
- *   <li>Post UI update callback.</li>
- * </ol>
  */
 public class SimulationEngine {
 
@@ -43,27 +35,15 @@ public class SimulationEngine {
     private ScheduledExecutorService executor;
     private ScheduledFuture<?> simulationTask;
 
-    // Callback invoked on the JavaFX thread after each step (for UI updates)
     private Consumer<SimulationState> onStepCallback;
-
-    // Simulation speed multiplier (1.0 = real-time, 2.0 = double speed)
     private double speedMultiplier = 1.0;
-
-    // Steps per UI update (to avoid flooding the FX thread)
     private int stepsPerUpdate = 10;
-
-    // Step counter for throttled UI updates
     private int stepCounter = 0;
-
-    // Track whether there's a pending danger in the current step
     private boolean currentStepDangerous = false;
 
-    /**
-     * Creates a new simulation engine.
-     *
-     * @param state      the simulation state to drive
-     * @param controller the controller providing motor commands
-     */
+    // The desired world ground height
+    private static final double GROUND_HEIGHT = 0.0;
+
     public SimulationEngine(SimulationState state, ExoController controller) {
         this.state = state;
         this.integrator = new PhysicsIntegrator();
@@ -72,36 +52,67 @@ public class SimulationEngine {
     }
 
     /**
-     * Performs a single simulation step.
+     * Performs a single simulation step where the foot acts as the anchor.
      */
     public void step() {
         double dt = state.getDt();
-        state.getHumanModel().enforcePositionConstraints();
+        HumanModel human = state.getHumanModel();
+
+        // Enforce skeletal alignment before applying physics
+        human.enforcePositionConstraints();
 
         // 1. Compute motor commands from controller
         MotorCommands cmds = controller.computeCommands(state, state.getTime());
 
         // 2. Clear forces, then apply motor commands
         ExoskeletonModel exo = state.getExoskeletonModel();
-        // Clear forces FIRST so motor torques are not wiped
-        for (var seg : state.getHumanModel().getAllSegments()) {
+        for (var seg : human.getAllSegments()) {
             seg.clearForces();
         }
 
+        // Apply your torques (keeping your inverted hip torque if your controller requires it)
         exo.getHipMotor().applyCommand(cmds.hipTorque());
         exo.getKneeMotor().applyCommand(cmds.kneeTorque());
         exo.getAnkleMotor().applyCommand(cmds.ankleTorque());
 
-        // Apply motor torques to segments
+
         for (Motor motor : exo.getAllMotors()) {
             motor.applyToJoint();
         }
 
-        // 3. Integrate physics (gravity, constraints, integration — no clearForces inside)
+        // --- STEP A: SNAPSHOT THE FOOT'S POSITION BEFORE WE MOVE THE JOINTS ---
+        RigidBodySegment foot = human.getFoot();
+        double footXBefore = foot.getDistalX();
+        double footYBefore = foot.getDistalY();
+
+        // 3. Integrate physics (This updates joint angles based on your torques)
         integrator.integrate(state, dt);
-        state.getHumanModel().enforcePositionConstraints();
+
+        // Re-align bones (this will temporarily move the foot because hipAnchor is still at its old position)
+        human.enforcePositionConstraints();
+
         // 4. Update sensors
         exo.updateSensors(dt, state.getTime());
+
+        // --- STEP B: FORCE THE FOOT TO BE THE ANCHOR (KINEMATIC INVERSION) ---
+        // Calculate how much the joint rotations tried to move the foot in space
+        double deltaX = foot.getDistalX() - footXBefore;
+        double deltaY = foot.getDistalY() - footYBefore;
+
+        // INVERSION: Instead of moving the foot forward/downward, we apply the
+        // EXACT OPPOSITE movement to the hip anchor.
+        // This pins the foot instantly in the world and force-moves the hip instead!
+        human.setHipAnchorX(human.getHipAnchorX() - deltaX);
+        human.setHipAnchorY(human.getHipAnchorY() - deltaY);
+
+        // --- STEP C: GROUND LOCK SNAP ---
+        // Ensure that the bottom of the foot stays exactly glued to the floor line (Y = 0)
+        double correctionY = GROUND_HEIGHT - foot.getDistalY();
+        human.setHipAnchorY(human.getHipAnchorY() + correctionY);
+
+        // CRITICAL: Re-enforce constraints right now so that the thigh, shank, and foot
+        // are drawn relative to our newly calculated walking/squatting hip position!
+        human.enforcePositionConstraints();
 
         // 5. Evaluate safety
         currentStepDangerous = safetyEvaluator.evaluate(state);
@@ -115,7 +126,6 @@ public class SimulationEngine {
             stepCounter = 0;
             Platform.runLater(() -> onStepCallback.accept(state));
         }
-
     }
 
     /** Starts the simulation loop on a background thread. */
@@ -129,9 +139,8 @@ public class SimulationEngine {
             return t;
         });
 
-        // Schedule at the physics rate, adjusted for speed multiplier
         long periodMicros = (long) (state.getDt() * 1_000_000 / speedMultiplier);
-        periodMicros = Math.max(100, periodMicros); // minimum 100 µs
+        periodMicros = Math.max(100, periodMicros);
 
         simulationTask = executor.scheduleAtFixedRate(() -> {
             try {
@@ -167,7 +176,7 @@ public class SimulationEngine {
         }
     }
 
-    /** Advances the simulation by one step (for step-by-step debugging). */
+    /** Advances the simulation by one step. */
     public void singleStep() {
         step();
         if (onStepCallback != null) {
@@ -176,33 +185,18 @@ public class SimulationEngine {
     }
 
     // ---- Getters & setters ----
-
     public boolean isRunning() { return running.get(); }
     public SimulationState getState() { return state; }
     public ExoController getController() { return controller; }
-
-    public void setController(ExoController controller) {
-        this.controller = controller;
-    }
-
-    public void setOnStepCallback(Consumer<SimulationState> callback) {
-        this.onStepCallback = callback;
-    }
-
+    public void setController(ExoController controller) { this.controller = controller; }
+    public void setOnStepCallback(Consumer<SimulationState> callback) { this.onStepCallback = callback; }
     public double getSpeedMultiplier() { return speedMultiplier; }
     public void setSpeedMultiplier(double speedMultiplier) {
         this.speedMultiplier = Math.max(0.1, Math.min(10.0, speedMultiplier));
-        // If running, restart with new timing
         if (running.get()) {
             pause();
             play();
         }
     }
-
-    public void setStepsPerUpdate(int steps) {
-        this.stepsPerUpdate = Math.max(1, steps);
-    }
+    public void setStepsPerUpdate(int steps) { this.stepsPerUpdate = Math.max(1, steps); }
 }
-
-
-
