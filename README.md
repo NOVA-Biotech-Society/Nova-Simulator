@@ -32,6 +32,16 @@ The Nova-Simulator is a 2D physics engine (rendered in 3D) built with **JavaFX**
 * **Graphics:** JavaFX 3D
 * **Build Tool:** Maven
 
+## Installation
+See the full step-by-step guide in [INSTALLATION.md](INSTALLATION.md).
+
+Quick start:
+
+```bash
+mvn clean compile
+mvn javafx:run
+```
+
 ---
 
 ## Constributors
