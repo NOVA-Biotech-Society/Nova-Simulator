@@ -16,6 +16,7 @@ import javafx.scene.shape.Sphere;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Translate;
 import javafx.stage.FileChooser;
+import simulation.controller.ScriptedProstrationController;
 import simulation.hardware.HardwareModeController;
 import simulation.hardware.SimulationMode;
 import simulation.model.*;
@@ -598,6 +599,13 @@ public class MainView extends BorderPane {
     private void onSimulationStep(SimulationState state) {
         updateTransforms(state);
         controlPanel.updateTime(state.getTime());
+//        if (engine.getController() instanceof ScriptedProstrationController) {
+//            ScriptedProstrationController scriptedCtrl = (ScriptedProstrationController) engine.getController();
+//            controlPanel.updateKeyframeName(scriptedCtrl.getCurrentKeyframeName());
+//        } else {
+//            controlPanel.updateKeyframeName("N/A"); // Si jamais tu as un autre type de contrôleur actif
+//        }
+        controlPanel.updateKeyframeName(engine.getController().getCurrentKeyframeName());
         dataPanel.update(state);
         chartPanel.update(state);
     }

@@ -42,7 +42,7 @@ public class DataPanel extends VBox {
         setSpacing(6);
         setPadding(new Insets(10));
         setPrefWidth(280);
-        setStyle("-fx-background-color: #2b2b2b;");
+        setStyle("-fx-background-color: #2b2b2b");
 
         // --- Joint Angles ---
         TitledPane anglesPane = createSection("Joint Angles (°)", createGrid(
@@ -71,6 +71,11 @@ public class DataPanel extends VBox {
                 "Gyro:", gyroLabel,
                 "Mag:", magLabel
         ));
+
+        anglesPane.setStyle("-fx-text-fill: black;");
+        torquesPane.setStyle("-fx-text-fill: black;");
+        omegaPane.setStyle("-fx-text-fill: black;");
+        imuPane.setStyle("-fx-text-fill: black;");
 
         // --- Safety Warnings ---
         Label warningsTitle = new Label("⚠ Safety Warnings");
