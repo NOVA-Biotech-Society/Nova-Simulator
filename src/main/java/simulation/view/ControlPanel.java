@@ -21,6 +21,7 @@ public class ControlPanel extends VBox {
 
     private final SimulationEngine engine;
     private final Label timeLabel;
+    private final Label keyframeLabel;
     private final Label statusLabel;
     private final Button playBtn;
     private final Button pauseBtn;
@@ -57,6 +58,10 @@ public class ControlPanel extends VBox {
         // --- Title ---
         Label title = new Label("Nova Exoskeleton Simulator");
         title.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 15px; -fx-font-weight: bold;");
+
+        //Keyframe label
+        keyframeLabel = new Label("Step: Debout");
+        keyframeLabel.setStyle("-fx-text-fill: #FFD54F; -fx-font-size: 12px; -fx-font-weight: bold;");
 
         // --- Status ---
         statusLabel = new Label("Status: Stopped");
@@ -160,7 +165,7 @@ public class ControlPanel extends VBox {
         Separator sep2 = new Separator();
 
         getChildren().addAll(
-                title, scenarioLabel,
+                title, scenarioLabel, keyframeLabel,
                 statusLabel, timeLabel,
                 sep1,
                 transportRow1, transportRow2,
@@ -257,6 +262,7 @@ public class ControlPanel extends VBox {
         massSlider.setMajorTickUnit(20);
         massSlider.valueProperty().addListener((obs, o, n) -> {
             massSliderValue.setText(String.format("%.0f kg", n.doubleValue()));
+
             //Here we update the human mass (it affects all the segmentations in the simulation)
             engine.getState().getHumanModel().setTotalMass(n.doubleValue());
             if (onParameterChange != null) {
@@ -317,6 +323,10 @@ public class ControlPanel extends VBox {
         pane.setExpanded(false);
         pane.setStyle("-fx-text-fill: #000000;");
         return pane;
+    }
+
+    public void updateKeyframeName(String name) {
+        keyframeLabel.setText("Step: " + name);
     }
 
     /** Updates the time display. Called from the UI thread. */

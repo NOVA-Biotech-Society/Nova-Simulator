@@ -144,7 +144,7 @@ public class HumanModel {
     }
 
     public void updateSegmentationDimensions(){
-        this.thighLength = height * 0.245;   // ~24.5% of height
+        this.thighLength = height * 0.285;   // ~34.5% of height
         this.shankLength = height * 0.246;   // ~24.6% of height
         this.footLength  = height * 0.039;   // foot "height" for vertical representation
         thigh.setLength(this.thighLength);
