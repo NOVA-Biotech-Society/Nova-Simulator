@@ -8,7 +8,7 @@ import simulation.model.Motor;
 import simulation.model.SimulationState;
 import simulation.model.RigidBodySegment;
 import simulation.model.HumanModel;
-
+import simulation.util.SimulationDataRecorder;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -30,6 +30,8 @@ public class SimulationEngine {
     private final PhysicsIntegrator integrator;
     private final SafetyEvaluator safetyEvaluator;
     private ExoController controller;
+
+    private final SimulationDataRecorder recorder = new SimulationDataRecorder();
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private ScheduledExecutorService executor;
@@ -117,6 +119,11 @@ public class SimulationEngine {
         // 5. Evaluate safety
         currentStepDangerous = safetyEvaluator.evaluate(state);
 
+        //Writes to CSV HERE
+        if (recorder.isRecording()) {
+            recorder.logFrame(state);
+        }
+
         // 6. Advance time
         state.advanceTime();
 
@@ -132,6 +139,11 @@ public class SimulationEngine {
     public void play() {
         if (running.get()) return;
         running.set(true);
+
+        //Start data recorder
+        if (!recorder.isRecording()) {
+            recorder.startRecording("training_data.csv"); //Will be later modifiable from NovaSim UI
+        }
 
         executor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "SimulationEngine");
@@ -163,11 +175,14 @@ public class SimulationEngine {
         if (executor != null) {
             executor.shutdown();
         }
+        //Stop data recorder
+        recorder.stopRecording();
     }
 
     /** Resets the simulation to initial conditions. */
     public void reset() {
         pause();
+        recorder.stopRecording();
         state.reset();
         controller.reset();
         stepCounter = 0;
@@ -178,6 +193,10 @@ public class SimulationEngine {
 
     /** Advances the simulation by one step. */
     public void singleStep() {
+
+        boolean wasRecording = recorder.isRecording();
+        if (!wasRecording) recorder.startRecording("training_data.csv"); //Will be later modifiable from NovaSim UI
+
         step();
         if (onStepCallback != null) {
             Platform.runLater(() -> onStepCallback.accept(state));
