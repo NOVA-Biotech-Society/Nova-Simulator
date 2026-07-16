@@ -7,6 +7,7 @@ import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import simulation.ml.AIControlDiagnostics;
 import simulation.hardware.SimulationMode;
 import simulation.model.JointType;
 import simulation.physics.SimulationEngine;
@@ -43,6 +44,13 @@ public class ControlPanel extends VBox {
     private final Spinner<Double> minAngleSpinner;
     private final Spinner<Double> maxAngleSpinner;
     private final Label hardwareStatusLabel;
+    private final Label aiKeyframeLabel;
+    private final Label aiNextKeyframeLabel;
+    private final Label aiProgressLabel;
+    private final Label aiConfidenceLabel;
+    private final Label aiSafetyModeLabel;
+    private final Label aiViolationsLabel;
+    private final Label aiModelStatusLabel;
 
     // Callbacks for parameter changes (rebuild model)
     private Runnable onParameterChange;
@@ -120,7 +128,16 @@ public class ControlPanel extends VBox {
         hardwareStatusLabel.setStyle("-fx-text-fill: #90CAF9; -fx-font-size: 11px;");
         disconnectHardwareBtn.setDisable(true);
 
+        aiKeyframeLabel = createAiValueLabel("STANDING");
+        aiNextKeyframeLabel = createAiValueLabel("STANDING");
+        aiProgressLabel = createAiValueLabel("0.0%");
+        aiConfidenceLabel = createAiValueLabel("0.0%");
+        aiSafetyModeLabel = createAiValueLabel("HOLD");
+        aiViolationsLabel = createAiValueLabel("0");
+        aiModelStatusLabel = createAiValueLabel("Not configured");
+
         TitledPane modePane = createModePane();
+        TitledPane aiPane = createAiStatusPane();
 
         // --- Human parameters ---
         TitledPane humanPane = createHumanParameterPane();
@@ -166,6 +183,7 @@ public class ControlPanel extends VBox {
                 transportRow1, transportRow2,
                 speedLabel, speedSlider,
                 modePane,
+                aiPane,
                 sep2,
                 parametersTitle,
                 humanPane, exoPane,
@@ -208,6 +226,38 @@ public class ControlPanel extends VBox {
         grid.add(hardwareStatusLabel, 0, 6, 3, 1);
 
         TitledPane pane = new TitledPane("Mode & Hardware", grid);
+        pane.setExpanded(true);
+        pane.setStyle("-fx-text-fill: #000000;");
+        return pane;
+    }
+
+    private TitledPane createAiStatusPane() {
+        GridPane grid = new GridPane();
+        grid.setHgap(8);
+        grid.setVgap(6);
+        grid.setPadding(new Insets(4));
+
+        Label keyframeLabel = new Label("Keyframe:");
+        Label nextKeyframeLabel = new Label("Next:");
+        Label progressLabel = new Label("Progress:");
+        Label confidenceLabel = new Label("Confidence:");
+        Label safetyModeLabel = new Label("Safety:");
+        Label violationsLabel = new Label("Violations:");
+        Label modelStatusLabel = new Label("Model:");
+
+        for (Label label : List.of(keyframeLabel, nextKeyframeLabel, progressLabel, confidenceLabel, safetyModeLabel, violationsLabel, modelStatusLabel)) {
+            label.setStyle("-fx-text-fill: #ccc;");
+        }
+
+        grid.add(keyframeLabel, 0, 0); grid.add(aiKeyframeLabel, 1, 0);
+        grid.add(nextKeyframeLabel, 0, 1); grid.add(aiNextKeyframeLabel, 1, 1);
+        grid.add(progressLabel, 0, 2); grid.add(aiProgressLabel, 1, 2);
+        grid.add(confidenceLabel, 0, 3); grid.add(aiConfidenceLabel, 1, 3);
+        grid.add(safetyModeLabel, 0, 4); grid.add(aiSafetyModeLabel, 1, 4);
+        grid.add(violationsLabel, 0, 5); grid.add(aiViolationsLabel, 1, 5);
+        grid.add(modelStatusLabel, 0, 6); grid.add(aiModelStatusLabel, 1, 6);
+
+        TitledPane pane = new TitledPane("AI Status", grid);
         pane.setExpanded(true);
         pane.setStyle("-fx-text-fill: #000000;");
         return pane;
@@ -383,6 +433,32 @@ public class ControlPanel extends VBox {
         hardwareStatusLabel.setText(text);
     }
 
+    public void setAiDiagnostics(AIControlDiagnostics diagnostics) {
+        if (diagnostics == null) {
+            clearAiDiagnostics();
+            return;
+        }
+        aiKeyframeLabel.setText(valueOrUnknown(diagnostics.currentKeyframe()));
+        aiNextKeyframeLabel.setText(valueOrUnknown(diagnostics.nextKeyframe()));
+        aiProgressLabel.setText(String.format("%.1f%%", clamp01(diagnostics.progress()) * 100.0));
+        aiConfidenceLabel.setText(String.format("%.1f%%", clamp01(diagnostics.confidence()) * 100.0));
+        aiSafetyModeLabel.setText(diagnostics.safetyMode() == null ? "UNKNOWN" : diagnostics.safetyMode());
+        aiViolationsLabel.setText(Integer.toString(Math.max(0, diagnostics.safetyViolationCount())));
+        aiModelStatusLabel.setText(diagnostics.modelReady()
+                ? "Ready: " + (diagnostics.modelPath() == null ? "<unknown>" : diagnostics.modelPath())
+                : "Fallback / model missing");
+    }
+
+    public void clearAiDiagnostics() {
+        aiKeyframeLabel.setText("STANDING");
+        aiNextKeyframeLabel.setText("STANDING");
+        aiProgressLabel.setText("0.0%");
+        aiConfidenceLabel.setText("0.0%");
+        aiSafetyModeLabel.setText("HOLD");
+        aiViolationsLabel.setText("0");
+        aiModelStatusLabel.setText("Not configured");
+    }
+
     public void setHardwareConnected(boolean connected) {
         connectHardwareBtn.setDisable(connected);
         disconnectHardwareBtn.setDisable(!connected);
@@ -402,5 +478,19 @@ public class ControlPanel extends VBox {
         btn.setOnMouseEntered(e -> btn.setOpacity(0.85));
         btn.setOnMouseExited(e -> btn.setOpacity(1.0));
         return btn;
+    }
+
+    private Label createAiValueLabel(String text) {
+        Label label = new Label(text);
+        label.setStyle("-fx-text-fill: #00e676; -fx-font-family: 'Consolas', monospace; -fx-font-size: 12px;");
+        return label;
+    }
+
+    private String valueOrUnknown(Object value) {
+        return value == null ? "UNKNOWN" : value.toString();
+    }
+
+    private double clamp01(double value) {
+        return Math.max(0.0, Math.min(1.0, value));
     }
 }

@@ -4,7 +4,6 @@ import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 import simulation.controller.ExoController;
-import simulation.controller.ScriptedProstrationController;
 import simulation.model.ExoskeletonModel;
 import simulation.model.HumanModel;
 import simulation.model.SimulationState;
@@ -54,7 +53,7 @@ public class MainApp extends Application {
         state.reset(); // Initialize to standing pose
 
         // 4. Create controller
-        ExoController controller = new ScriptedProstrationController();
+        ExoController controller = ControllerFactory.create(config);
 
         // 5. Create simulation engine
         engine = new SimulationEngine(state, controller);

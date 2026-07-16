@@ -1,5 +1,7 @@
 package simulation.app;
 
+import java.nio.file.Path;
+
 /**
  * Central configuration object holding all tuneable parameters for the simulation.
  * <p>
@@ -8,6 +10,11 @@ package simulation.app;
  * </p>
  */
 public class SimulationConfig {
+
+    public enum ControllerMode {
+        SCRIPTED,
+        TRIBUO
+    }
 
     // --- Simulation parameters ---
     private double dt = 0.001;             // timestep in seconds (2 ms = 500 Hz)
@@ -29,6 +36,13 @@ public class SimulationConfig {
     private double exoMassFraction = 0.15;   // exo segment mass as fraction of human segment mass
     private double motorMaxTorque  = 100.0;  // N·m per motor
     private double motorMaxPower   = 200.0;  // W per motor
+
+    // --- Control selection ---
+    private ControllerMode controllerMode = ControllerMode.SCRIPTED;
+    private Path tribuoModelPath = Path.of("models", "tribuo", "nova-exo-control.model");
+    private int aiWindowSize = 100;
+    private double aiConfidenceThreshold = 0.75;
+    private Path aiTelemetryPath = Path.of("logs", "ai", "nova-exo-telemetry.csv");
 
     // --- Safety thresholds ---
     private double maxSafeHipTorque     = 150.0;   // N·m
@@ -85,6 +99,21 @@ public class SimulationConfig {
     public double getMotorMaxPower() { return motorMaxPower; }
     public void setMotorMaxPower(double p) { this.motorMaxPower = p; }
 
+    public ControllerMode getControllerMode() { return controllerMode; }
+    public void setControllerMode(ControllerMode controllerMode) { this.controllerMode = controllerMode; }
+
+    public Path getTribuoModelPath() { return tribuoModelPath; }
+    public void setTribuoModelPath(Path tribuoModelPath) { this.tribuoModelPath = tribuoModelPath; }
+
+    public int getAiWindowSize() { return aiWindowSize; }
+    public void setAiWindowSize(int aiWindowSize) { this.aiWindowSize = aiWindowSize; }
+
+    public double getAiConfidenceThreshold() { return aiConfidenceThreshold; }
+    public void setAiConfidenceThreshold(double aiConfidenceThreshold) { this.aiConfidenceThreshold = aiConfidenceThreshold; }
+
+    public Path getAiTelemetryPath() { return aiTelemetryPath; }
+    public void setAiTelemetryPath(Path aiTelemetryPath) { this.aiTelemetryPath = aiTelemetryPath; }
+
     public double getMaxSafeAngularVel() { return maxSafeAngularVel; }
     public void setMaxSafeAngularVel(double v) { this.maxSafeAngularVel = v; }
 
@@ -94,8 +123,8 @@ public class SimulationConfig {
 
     @Override
     public String toString() {
-        return String.format("SimConfig[dt=%.4f human=%.1fm/%.0fkg exoFrac=%.0f%% motorτ=%.0f]",
-                dt, humanHeight, humanMass, exoMassFraction * 100, motorMaxTorque);
+        return String.format("SimConfig[dt=%.4f human=%.1fm/%.0fkg exoFrac=%.0f%% motorτ=%.0f controller=%s model=%s window=%d confidence=%.2f telemetry=%s]",
+                dt, humanHeight, humanMass, exoMassFraction * 100, motorMaxTorque,
+                controllerMode, tribuoModelPath, aiWindowSize, aiConfidenceThreshold, aiTelemetryPath);
     }
 }
-
