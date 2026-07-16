@@ -17,8 +17,11 @@ import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Translate;
 import javafx.stage.FileChooser;
 import simulation.controller.ScriptedProstrationController;
+import simulation.controller.ExoController;
 import simulation.hardware.HardwareModeController;
 import simulation.hardware.SimulationMode;
+import simulation.ml.AIControlDiagnosticsProvider;
+import simulation.ml.AITelemetryRecorder;
 import simulation.model.*;
 import simulation.physics.SimulationEngine;
 
@@ -608,6 +611,17 @@ public class MainView extends BorderPane {
         controlPanel.updateKeyframeName(engine.getController().getCurrentKeyframeName());
         dataPanel.update(state);
         chartPanel.update(state);
+
+        ExoController controller = engine.getController();
+        if (controller instanceof AIControlDiagnosticsProvider diagnosticsProvider) {
+            controlPanel.setAiDiagnostics(diagnosticsProvider.getDiagnostics());
+        } else {
+            controlPanel.clearAiDiagnostics();
+        }
+
+        if (controller instanceof AITelemetryRecorder telemetryRecorder) {
+            telemetryRecorder.recordStep(state);
+        }
     }
 
     private void cycleJointSelection() {

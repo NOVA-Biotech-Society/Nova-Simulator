@@ -12,5 +12,6 @@ module simulation.app {
     exports simulation.controller;
     exports simulation.view;
     exports simulation.hardware;
+    exports simulation.ml;
     opens simulation.view to javafx.graphics;
 }
