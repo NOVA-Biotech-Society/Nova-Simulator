@@ -56,7 +56,7 @@ class MotionCaptureViewTest {
         result.get(30, TimeUnit.SECONDS);
     }
     private static ToggleButton button(Scene scene, String text) {
-        return scene.lookupAll(".toggle-button").stream()
+        return scene.getRoot().lookupAll(".toggle-button").stream()
                 .filter(node -> node instanceof ToggleButton button && text.equals(button.getText()))
                 .map(node -> (ToggleButton)node).findFirst().orElseThrow();
     }
