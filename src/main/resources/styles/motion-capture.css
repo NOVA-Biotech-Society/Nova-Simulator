@@ -1,0 +1,35 @@
+.capture-panel {
+    -fx-background-color: #1b2030;
+    -fx-font-family: "System";
+    -fx-font-size: 12px;
+}
+.capture-title { -fx-text-fill: #f2f5fc; -fx-font-size: 19px; -fx-font-weight: bold; }
+.capture-heading { -fx-text-fill: #e2e8f5; -fx-font-size: 12px; -fx-font-weight: bold; }
+.capture-eyebrow { -fx-text-fill: #8d9bb4; -fx-font-size: 9px; -fx-font-weight: bold; }
+.capture-muted { -fx-text-fill: #a6b2c8; -fx-font-size: 11px; }
+.capture-body { -fx-text-fill: #d7e1f3; }
+.capture-number { -fx-text-fill: #edf3ff; -fx-font-family: "Monospaced"; -fx-font-size: 11px; }
+.capture-value { -fx-text-fill: #eaf8f7; -fx-font-size: 17px; -fx-font-weight: bold; }
+.capture-preview { -fx-background-color: #101522; -fx-border-color: #323d50; -fx-border-radius: 8px; -fx-background-radius: 8px; }
+.capture-metric { -fx-background-color: #242d3e; -fx-padding: 10 8; -fx-background-radius: 7px; }
+.capture-panel .button, .capture-toolbar .toggle-button {
+    -fx-background-color: #2c364b; -fx-text-fill: #e4edfc; -fx-background-radius: 6px;
+    -fx-padding: 8 12; -fx-cursor: hand; -fx-border-color: #40506b; -fx-border-radius: 6px;
+}
+.capture-panel .button:hover, .capture-toolbar .toggle-button:hover { -fx-background-color: #3a4860; }
+.capture-panel .capture-primary, .capture-toolbar .toggle-button:selected {
+    -fx-background-color: #53e0cb; -fx-text-fill: #0d292a; -fx-font-weight: bold; -fx-border-color: #53e0cb;
+}
+.capture-panel .button:focused, .capture-toolbar .toggle-button:focused {
+    -fx-border-color: #c2fff4; -fx-border-width: 2px; -fx-padding: 7 11;
+}
+.capture-panel .button:disabled, .capture-toolbar .toggle-button:disabled { -fx-opacity: 0.45; }
+.capture-panel .check-box { -fx-text-fill: #d7e1f3; }
+.capture-panel .combo-box, .capture-panel .spinner { -fx-background-color: #2c364b; -fx-background-radius: 4px; }
+.capture-panel .combo-box .list-cell { -fx-text-fill: #edf3ff; -fx-background-color: #2c364b; }
+.capture-panel .combo-box-popup .list-cell:hover { -fx-background-color: #43536b; }
+.capture-panel .spinner .text-field { -fx-background-color: #2c364b; -fx-text-fill: #edf3ff; }
+.capture-panel .titled-pane > .title { -fx-background-color: #242d3e; -fx-padding: 10; }
+.capture-panel .titled-pane > .title > .text { -fx-fill: #d7e1f3; }
+.capture-panel .titled-pane > .content { -fx-background-color: #1b2030; -fx-border-color: #323d50; -fx-padding: 12 0; }
+.capture-scroll, .capture-scroll > .viewport { -fx-background-color: #1b2030; }

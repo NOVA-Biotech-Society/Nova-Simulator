@@ -72,6 +72,8 @@ public class MainView extends BorderPane {
     private final DataPanel dataPanel;
     private final ChartPanel chartPanel;
     private final CameraController cameraController;
+    private final MotionCapturePanel motionCapturePanel;
+    private final PoseAvatar poseAvatar = new PoseAvatar();
 
     // 3D scene root
     private Group root3D;
@@ -97,6 +99,7 @@ public class MainView extends BorderPane {
 
         // --- Build 3D scene ---
         root3D = build3DScene(engine.getState());
+        root3D.getChildren().add(poseAvatar);
 
         subScene = new SubScene(root3D, 800, 600, true, SceneAntialiasing.BALANCED);
         subScene.setFill(Color.web("#1a1a2e"));
@@ -241,10 +244,36 @@ public class MainView extends BorderPane {
         tabPane.getTabs().addAll(controlTab, dataTab, chartTab);
         tabPane.setPrefWidth(320);
 
+        // Optional local vision workspace lives in the main split view. The cyan
+        // avatar is a separate scene node; camera observations never mutate physics.
+        SplitPane captureSplit = new SplitPane(viewportStack);
+        captureSplit.setOrientation(Orientation.HORIZONTAL);
+        ScrollPane captureScroll = new ScrollPane();
+        captureScroll.setFitToWidth(true);
+        captureScroll.setMinWidth(285);
+        captureScroll.setPrefWidth(340);
+        captureScroll.getStyleClass().add("capture-scroll");
+        captureScroll.getStylesheets().add(getClass().getResource("/styles/motion-capture.css").toExternalForm());
+        motionCapturePanel = new MotionCapturePanel(
+                () -> engine.getState().getHumanModel(),
+                frame -> poseAvatar.update(frame, engine.getState().getHumanModel()),
+                () -> poseAvatar.setVisible(false),
+                expanded -> {
+                    if (expanded && !captureSplit.getItems().contains(captureScroll)) {
+                        captureSplit.getItems().add(0, captureScroll);
+                        captureSplit.setDividerPositions(0.4);
+                    } else if (!expanded) {
+                        captureSplit.getItems().remove(captureScroll);
+                    }
+                });
+        captureScroll.setContent(motionCapturePanel);
+        BorderPane workspace = new BorderPane(captureSplit);
+        workspace.setTop(motionCapturePanel.toolbar());
+
         // Layout
         SplitPane splitPane = new SplitPane();
         splitPane.setOrientation(Orientation.HORIZONTAL);
-        splitPane.getItems().addAll(viewportStack, tabPane);
+        splitPane.getItems().addAll(workspace, tabPane);
         splitPane.setDividerPositions(0.7);
 
         setCenter(splitPane);
@@ -726,6 +755,7 @@ public class MainView extends BorderPane {
     // ====================================================================
 
     public void shutdown() {
+        motionCapturePanel.shutdown();
         hardwareModeController.shutdown();
     }
 

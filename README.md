@@ -9,6 +9,7 @@ This simulator is designed to bridge the gap between biomechanical physics and m
 The Nova-Simulator is a 2D physics engine (rendered in 3D) built with **JavaFX**. It allows for real-time simulation of human gait cycles, sensor data acquisition (IMU), and exoskeleton torque assistance.
 
 ### Key Features
+* **MediaPipe Motion Capture:** Optional local camera preview, skeleton overlay, calibrated joint observations, comparison avatar, live traces, and labelled dataset recording/replay. See [capture setup and usage](vision/README.md).
 * **Physics Engine:** Rigid body dynamics with semi-implicit Euler integration.
 * **Kinematic Constraints:** Real-time joint stabilization (Hip, Knee, Ankle) using `enforcePositionConstraints`.
 * **Modular Design:** Drag-and-drop system for placing motors and sensors on segments.

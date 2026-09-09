@@ -1,6 +1,7 @@
 module simulation.app {
     requires javafx.controls;
     requires javafx.graphics;
+    requires com.google.gson;
     requires com.fazecast.jSerialComm;
 
     opens simulation.app to javafx.graphics;
@@ -14,4 +15,6 @@ module simulation.app {
     exports simulation.view;
     exports simulation.hardware;
     exports simulation.ml;
+    exports simulation.vision;
+    opens simulation.vision to com.google.gson;
 }
