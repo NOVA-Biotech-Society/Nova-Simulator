@@ -5,6 +5,7 @@ module simulation.app {
 
     opens simulation.app to javafx.graphics;
     opens simulation.model to javafx.base;
+    opens simulation.view to javafx.graphics;
 
     exports simulation.app;
     exports simulation.model;
@@ -13,5 +14,4 @@ module simulation.app {
     exports simulation.view;
     exports simulation.hardware;
     exports simulation.ml;
-    opens simulation.view to javafx.graphics;
 }
