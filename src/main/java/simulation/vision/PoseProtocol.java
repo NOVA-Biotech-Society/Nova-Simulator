@@ -36,7 +36,7 @@ public final class PoseProtocol {
             throw new IllegalArgumentException("Unknown camera message");
         } else if (packet.message() == null || packet.message().isBlank() || packet.message().length() > 4096
                 || ("status".equals(packet.type()) && !("camera".equals(packet.state())
-                || "loading".equals(packet.state()) || "pose_error".equals(packet.state())))) {
+                || "opening".equals(packet.state()) || "loading".equals(packet.state()) || "pose_error".equals(packet.state())))) {
             throw new IllegalArgumentException("Invalid camera status");
         }
         return packet;

@@ -58,20 +58,55 @@ def create_landmarker(model):
     return mp, mp.tasks.vision.PoseLandmarker.create_from_options(options)
 
 
+def open_camera(cv2, camera_index):
+    # Windows' default MSMF backend can open a device without delivering images.
+    # Validate an actual frame and release each failed backend before retrying.
+    backends = [(cv2.CAP_DSHOW, "DirectShow"), (cv2.CAP_MSMF, "Media Foundation")] \
+        if sys.platform == "win32" else [(cv2.CAP_ANY, "system")]
+    attempts = []
+    for backend, name in backends:
+        capture = None
+        emit({"type": "status", "state": "opening", "message": f"Opening camera {camera_index} ({name})"})
+        try:
+            capture = cv2.VideoCapture(camera_index, backend)
+            if not capture.isOpened():
+                attempts.append(f"{name}: device unavailable")
+                continue
+            # Keep the device's native format: forcing 720p/30 can break working cameras.
+            deadline = time.monotonic() + 4
+            while time.monotonic() < deadline:
+                ok, frame = capture.read()
+                if ok and frame is not None and frame.size > 0:
+                    result = capture, frame
+                    capture = None  # Ownership passes to run(), including cleanup.
+                    return result
+                time.sleep(0.05)
+            attempts.append(f"{name}: no frames received")
+        except Exception as exc:
+            attempts.append(f"{name}: {exc}")
+        finally:
+            if capture is not None:
+                capture.release()
+    raise RuntimeError(f"Cannot open camera {camera_index}. {'; '.join(attempts)}. "
+                       "Close other camera apps, allow camera access for desktop apps in OS settings, "
+                       "and try another device index in Capture setup.")
+
+
 def run(camera_index, model):
-    import cv2
+    try:
+        import cv2
+    except ImportError as exc:
+        raise RuntimeError("OpenCV is unavailable in this Python environment. "
+                           "Click Set up capture in the app, then enable the camera again. "
+                           f"({exc})") from exc
     commands = queue.Queue(maxsize=32)
     threading.Thread(target=read_commands, args=(commands,), daemon=True).start()
-    capture = cv2.VideoCapture(camera_index)
+    capture = None
     landmarker = None
     mp = None
     try:
-        if not capture.isOpened():
-            raise RuntimeError("Cannot open camera. Check its index, OS permission, and other camera apps.")
-        capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-        capture.set(cv2.CAP_PROP_FPS, 30)
-        capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        capture, first_frame = open_camera(cv2, camera_index)
+        first_captured_ms = time.time_ns() // 1_000_000
         emit({"type": "status", "state": "camera", "message": "Camera ready"})
         frame_id = 0
         previous_timestamp = 0
@@ -92,8 +127,13 @@ def run(camera_index, model):
                     landmarker = None
                     emit({"type": "status", "state": "camera", "message": "Camera ready"})
             started = time.monotonic()
-            ok, frame = capture.read()
-            captured_ms = time.time_ns() // 1_000_000
+            if first_frame is not None:
+                ok, frame = True, first_frame
+                first_frame = None
+                captured_ms = first_captured_ms
+            else:
+                ok, frame = capture.read()
+                captured_ms = time.time_ns() // 1_000_000
             if not ok:
                 failures += 1
                 if failures >= 10:
@@ -138,7 +178,8 @@ def run(camera_index, model):
     finally:
         if landmarker is not None:
             landmarker.close()
-        capture.release()
+        if capture is not None:
+            capture.release()
 
 
 def main():

@@ -137,6 +137,8 @@ public class MainView extends BorderPane {
 
         // Wrap SubScene in a StackPane for overlay
         javafx.scene.layout.StackPane viewportStack = new javafx.scene.layout.StackPane(subScene, overlayImageView, moduleInfoLabel);
+        viewportStack.setMinSize(0, 0);
+        subScene.setManaged(false);
         javafx.scene.layout.StackPane.setAlignment(moduleInfoLabel, javafx.geometry.Pos.BOTTOM_LEFT);
         javafx.scene.layout.StackPane.setMargin(moduleInfoLabel, new javafx.geometry.Insets(0, 0, 10, 10));
 
@@ -247,6 +249,7 @@ public class MainView extends BorderPane {
         // Optional local vision workspace lives in the main split view. The cyan
         // avatar is a separate scene node; camera observations never mutate physics.
         SplitPane captureSplit = new SplitPane(viewportStack);
+        captureSplit.setMinSize(0, 0);
         captureSplit.setOrientation(Orientation.HORIZONTAL);
         ScrollPane captureScroll = new ScrollPane();
         captureScroll.setFitToWidth(true);
@@ -268,6 +271,7 @@ public class MainView extends BorderPane {
                 });
         captureScroll.setContent(motionCapturePanel);
         BorderPane workspace = new BorderPane(captureSplit);
+        workspace.setMinSize(0, 0);
         workspace.setTop(motionCapturePanel.toolbar());
 
         // Layout

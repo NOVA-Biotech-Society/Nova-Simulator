@@ -7,7 +7,14 @@ calibration, labelled recording, and offline replay to the main split view.
 ## One-time setup
 
 Use **64-bit Python 3.11**, a webcam, and the existing Java 21/Maven setup.
-From the repository root, create the environment:
+In the app, open **Motion capture → Capture setup → Set up capture…**, then
+choose **Install components**. This creates or reuses the project's `.venv`,
+installs the pinned packages, downloads the pose model, and checks the imports.
+Progress appears in the toolbar; **Cancel setup** stops the installer. Setup
+does not open the camera. Once complete, click **Enable camera**, then
+**Enable MediaPipe**. Python 3.9–3.12 is supported; Python 3.11 is recommended.
+
+For manual setup instead, from the repository root create the environment:
 
 ```bash
 python -m venv .venv
@@ -33,11 +40,16 @@ The setup script downloads Google's version-1 Pose Landmarker Lite model over
 HTTPS and validates the task archive. Capture works offline after setup. The app
 does not install packages or download models when the camera is enabled.
 
-The launcher discovers the project `.venv` automatically. For other installations,
+The launcher locates `vision` beside the compiled app or above its working
+directory, so IDE launches from `target/classes` or another directory work.
+It discovers the project's `.venv` automatically and also recognizes the Windows
+`py -3.11` / `py -3.12` launchers and an active virtual environment. For other installations,
 pass JVM properties `nova.vision.python` (the interpreter executable, without
 shell quotes or flags) and `nova.vision.dir` (the absolute folder containing
 `pose_service.py`) through the Java launcher/IDE. The fallback interpreter is
-`python` on Windows and `python3` elsewhere.
+`python3` or `python` on PATH. An explicit interpreter override is authoritative;
+install packages into that environment manually, or remove the override before
+using the app's project-environment setup.
 
 ## Using the workspace
 
@@ -74,8 +86,11 @@ simulation continues independently.
 `vision/pose_service.py` owns OpenCV and the MediaPipe Tasks Pose Landmarker.
 VIDEO inference runs in this external Python worker. It cannot block JavaFX or
 the physics loop. Each transmitted JPEG and skeleton comes from the same image.
-Capture requests 1280×720 at 30 FPS, accepts the actual camera resolution, and
-bounds transport to 960×720 and 30 FPS.
+Capture keeps the device's native format and bounds transport to 960×720 and
+30 FPS. It validates the first real frame before announcing readiness. On Windows,
+DirectShow is tried first, followed by Media Foundation if opening or initial
+frame delivery fails; failed handles are released before retrying. A startup
+watchdog stops a worker stuck in a native camera call after 40 seconds.
 
 `PoseInputService` manages the child process on background threads. Private
 stdin/stdout pipes carry versioned NDJSON; no listening port is opened. This is
@@ -146,7 +161,10 @@ python -m unittest discover -s vision/tests -v
 poses, angle signs, image aspect ratio, orientation, confidence, occlusion,
 filtering, velocity resets and calibration. Maven includes session round-trip,
 input-bound and failure tests alongside the original suite. CI checks Java 21 and
-imports the pinned Python dependencies.
+the pinned Python dependencies on Linux and Windows. Under Linux's virtual
+display, the JavaFX regression runs repeated actual layout pulses with landscape
+and portrait preview images, expands/collapses the panel, and resizes the window
+down and up while asserting stable window and divider positions.
 
 Before merging, verify these real-device scenarios:
 
@@ -171,7 +189,15 @@ R&D observation/dataset tool.
 ## Troubleshooting
 
 - **Camera unavailable**: grant OS camera permission to the app/terminal/Python,
-  close other camera apps, select another index and retry.
+  close other camera apps, select another index and retry. On Windows, enable
+  camera access for **desktop apps**, including the Java/Python process. A working
+  Windows Camera app alone does not establish access for desktop programs.
+- **Missing Python/OpenCV/packages**: install 64-bit Python 3.11, restart NOVA,
+  then use **Set up capture…**. If automatic setup fails, use the manual commands
+  above. The setup button does not install or upgrade system Python.
+- **Unclear startup error**: use **Copy error details** in Capture setup. Native
+  worker errors are retained in a bounded diagnostic message instead of being
+  replaced with a generic disconnection message.
 - **MediaPipe unavailable**: run setup using the interpreter the app uses. Python
   3.11 is recommended for the pinned wheels. Camera-only mode still works.
 - **Startup timeout / stream stalled**: stop the camera, check device and OS

@@ -7,7 +7,11 @@ permissions:
   contents: read
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -15,7 +19,13 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: vision/requirements.txt
       - name: Prepare virtual display
+        if: runner.os == 'Linux'
         run: |
           if ! command -v xvfb-run >/dev/null; then
             sudo apt-get update
@@ -25,10 +35,14 @@ jobs:
         id: java
         shell: bash
         env:
-          NOVA_FX_SMOKE: 'true'
+          NOVA_FX_SMOKE: ${{ runner.os == 'Linux' && 'true' || 'false' }}
         run: |
           set +e
-          xvfb-run -a mvn --batch-mode -Dstyle.color=never verify > "$RUNNER_TEMP/maven.log" 2>&1
+          if [ "$RUNNER_OS" = Linux ]; then
+            xvfb-run -a mvn --batch-mode -Dstyle.color=never verify > "$RUNNER_TEMP/maven.log" 2>&1
+          else
+            mvn --batch-mode -Dstyle.color=never verify > "$RUNNER_TEMP/maven.log" 2>&1
+          fi
           build_status=$?
           cat "$RUNNER_TEMP/maven.log"
           python3 - <<'PY'
@@ -44,11 +58,6 @@ jobs:
       - name: '${{ steps.java.outputs.summary }}'
         if: always()
         run: echo 'See the build step for complete Maven output.'
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: pip
-          cache-dependency-path: vision/requirements.txt
       - run: python -m pip install -r vision/requirements.txt
       - run: python -c "import cv2, mediapipe; from mediapipe.tasks.python.vision import PoseLandmarker"
       - run: python -m unittest discover -s vision/tests -v

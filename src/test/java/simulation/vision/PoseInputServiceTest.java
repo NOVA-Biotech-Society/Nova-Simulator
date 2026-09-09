@@ -12,6 +12,51 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class PoseInputServiceTest {
     @TempDir Path directory;
 
+    @Test void findsWorkerFromCompiledClassesWhenIdeUsesAnotherWorkingDirectory() throws Exception {
+        Path root = directory.resolve("Project with spaces");
+        Path vision = Files.createDirectories(root.resolve("vision"));
+        Files.writeString(vision.resolve("pose_service.py"), "# worker");
+        Path classes = Files.createDirectories(root.resolve("target/classes"));
+        assertEquals(vision, PoseRuntime.findDirectory(directory.resolve("unrelated"), classes));
+        assertEquals(vision, PoseRuntime.findDirectory(root.resolve("src/main"), null));
+    }
+
+    @Test void reportsNativeStartupDiagnosticsInsteadOfGenericDisconnect() throws Exception {
+        withWorker("import sys\nprint('CAMERA_TEST_IMPORT_FAILURE: missing native library', file=sys.stderr)\nsys.exit(1)\n", source -> {
+            source.start();
+            await(() -> source.status().state() == PoseInputService.State.ERROR);
+            assertTrue(source.status().message().contains("CAMERA_TEST_IMPORT_FAILURE"), source.status().message());
+        });
+    }
+
+    @Test void setupCanBeCancelledWithoutWaitingForTheBlockingInstaller() throws Exception {
+        Files.writeString(directory.resolve("setup_capture.py"),
+                "import time\nprint('TEST_INSTALLER_READY', flush=True)\ntime.sleep(60)\n");
+        withWorker("# no camera opened\n", source -> {
+            source.setup();
+            await(() -> source.status().message().contains("TEST_INSTALLER_READY"));
+            assertEquals(PoseInputService.State.SETUP, source.status().state());
+            long before = System.nanoTime();
+            source.stop();
+            assertTrue(System.nanoTime() - before < TimeUnit.SECONDS.toNanos(1));
+            Thread.sleep(200);
+            assertEquals(PoseInputService.State.OFF, source.status().state());
+            assertTrue(source.latest().isEmpty());
+        });
+    }
+
+    private interface CameraCheck { void run(PoseInputService source) throws Exception; }
+    private void withWorker(String script, CameraCheck check) throws Exception {
+        String python = System.getProperty("os.name").startsWith("Windows") ? "python" : "python3";
+        try { assumeTrue(new ProcessBuilder(python,"--version").start().waitFor() == 0); }
+        catch (java.io.IOException e) { assumeTrue(false,"Python interpreter unavailable"); }
+        Files.writeString(directory.resolve("pose_service.py"), script);
+        String oldDir = System.getProperty("nova.vision.dir"), oldPython = System.getProperty("nova.vision.python");
+        System.setProperty("nova.vision.dir", directory.toString()); System.setProperty("nova.vision.python", python);
+        try (PoseInputService source = new PoseInputService()) { check.run(source); }
+        finally { restore("nova.vision.dir", oldDir); restore("nova.vision.python", oldPython); }
+    }
+
     @Test void stopAndRestartCannotPublishFramesFromOldWorker() throws Exception {
         String python=System.getProperty("os.name").startsWith("Windows") ? "python" : "python3";
         try { assumeTrue(new ProcessBuilder(python,"--version").start().waitFor()==0); }

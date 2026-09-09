@@ -54,9 +54,10 @@ class PoseServiceTests(unittest.TestCase):
 
     def test_camera_is_released_when_open_fails(self):
         capture = types.SimpleNamespace(isOpened=lambda: False, release=lambda: released.append(True))
-        cv2 = types.SimpleNamespace(VideoCapture=lambda index: capture)
+        cv2 = types.SimpleNamespace(VideoCapture=lambda *args: capture, CAP_ANY=0, CAP_DSHOW=1, CAP_MSMF=2)
         released = []
-        with patch.dict("sys.modules", {"cv2": cv2}), patch.object(service, "read_commands", lambda q: None):
+        with patch.dict("sys.modules", {"cv2": cv2}), patch.object(service.sys, "platform", "linux"), \
+                patch.object(service, "read_commands", lambda q: None):
             with self.assertRaisesRegex(RuntimeError, "Cannot open camera"):
                 service.run(0, pathlib.Path("missing"))
         self.assertEqual(released, [True])
@@ -64,10 +65,10 @@ class PoseServiceTests(unittest.TestCase):
     def test_camera_only_emits_matched_frame_and_stops_cleanly(self):
         released, output = [], []
         controls = queue.Queue()
-        frame = types.SimpleNamespace(shape=(720, 960, 3))
+        frame = types.SimpleNamespace(shape=(720, 960, 3), size=720*960*3)
         capture = types.SimpleNamespace(isOpened=lambda: True, set=lambda *args: None,
                                         read=lambda: (True, frame), release=lambda: released.append(True))
-        cv2 = types.SimpleNamespace(VideoCapture=lambda index: capture, CAP_PROP_FRAME_WIDTH=1,
+        cv2 = types.SimpleNamespace(VideoCapture=lambda *args: capture, CAP_ANY=0, CAP_DSHOW=1, CAP_MSMF=2, CAP_PROP_FRAME_WIDTH=1,
                                     CAP_PROP_FRAME_HEIGHT=2, CAP_PROP_FPS=3, CAP_PROP_BUFFERSIZE=4,
                                     IMWRITE_JPEG_QUALITY=5, imencode=lambda *args: (True, b"\xff\xd8\xff\xd9"))
 
@@ -92,10 +93,10 @@ class PoseServiceTests(unittest.TestCase):
         released, output = [], []
         controls = queue.Queue()
         controls.put({"type": "pose", "enabled": True})
-        frame = types.SimpleNamespace(shape=(720, 960, 3))
+        frame = types.SimpleNamespace(shape=(720, 960, 3), size=720*960*3)
         capture = types.SimpleNamespace(isOpened=lambda: True, set=lambda *args: None,
                                         read=lambda: (True, frame), release=lambda: released.append(True))
-        cv2 = types.SimpleNamespace(VideoCapture=lambda index: capture, CAP_PROP_FRAME_WIDTH=1,
+        cv2 = types.SimpleNamespace(VideoCapture=lambda *args: capture, CAP_ANY=0, CAP_DSHOW=1, CAP_MSMF=2, CAP_PROP_FRAME_WIDTH=1,
                                     CAP_PROP_FRAME_HEIGHT=2, CAP_PROP_FPS=3, CAP_PROP_BUFFERSIZE=4,
                                     IMWRITE_JPEG_QUALITY=5, imencode=lambda *args: (True, b"\xff\xd8\xff\xd9"))
 
@@ -111,6 +112,37 @@ class PoseServiceTests(unittest.TestCase):
         self.assertEqual(output[-1]["type"], "frame")
         self.assertFalse(output[-1]["poseEnabled"])
         self.assertEqual(released, [True])
+
+    def test_windows_releases_no_frame_backend_and_uses_working_fallback(self):
+        events = []
+        frame = types.SimpleNamespace(shape=(480, 640, 3), size=480*640*3)
+        def capture(index, backend):
+            events.append(("open", index, backend))
+            return types.SimpleNamespace(isOpened=lambda: True,
+                read=lambda: (False, None) if backend == 1 else (True, frame),
+                release=lambda: events.append(("release", backend)))
+        cv2 = types.SimpleNamespace(VideoCapture=capture, CAP_DSHOW=1, CAP_MSMF=2)
+        clock = iter(range(0, 100, 2))
+        with patch.object(service.sys, "platform", "win32"), \
+                patch.object(service.time, "monotonic", side_effect=lambda: next(clock)), \
+                patch.object(service.time, "sleep"), patch.object(service, "emit"):
+            opened, first = service.open_camera(cv2, 3)
+        self.assertIs(first, frame)
+        self.assertEqual(events, [("open", 3, 1), ("release", 1), ("open", 3, 2)])
+        opened.release()
+        self.assertEqual(events[-1], ("release", 2))
+
+    def test_camera_can_warm_up_without_changing_its_native_format(self):
+        frame = types.SimpleNamespace(shape=(600, 800, 3), size=600*800*3)
+        reads = iter([(False, None), (True, frame)])
+        capture = types.SimpleNamespace(isOpened=lambda: True, read=lambda: next(reads),
+                                         release=lambda: None)
+        cv2 = types.SimpleNamespace(VideoCapture=lambda *args: capture, CAP_ANY=0)
+        with patch.object(service.sys, "platform", "linux"), patch.object(service.time, "sleep"), \
+                patch.object(service, "emit"):
+            opened, first = service.open_camera(cv2, 0)
+        self.assertIs(first, frame)
+        self.assertIs(opened, capture)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ import java.util.function.Consumer;
 
 /** Owns one Python process. Blocking camera, model and pipe work never runs on JavaFX. */
 public final class PoseInputService implements PoseSource {
-    public enum State { OFF, STARTING, CAMERA, LOADING, TRACKING, LOST, ERROR }
+    public enum State { OFF, SETUP, STARTING, CAMERA, LOADING, TRACKING, LOST, ERROR }
     public record Status(State state, String message) { }
     public record Preview(PoseFrame pose, byte[] jpeg, long receivedNanos, double latencyMs, double inferenceMs) { }
     public record Metrics(double fps, double invalidPercent, long frames) { }
@@ -51,9 +51,10 @@ public final class PoseInputService implements PoseSource {
     }
 
     @Override public synchronized void start() {
-        if (closed) return;
+        if (closed || status.state == State.SETUP) return;
         long token = generation.incrementAndGet();
         preview.set(null);
+        metrics = new Metrics(0, 0, 0);
         mapper.reset();
         status = new Status(State.STARTING, "Opening device camera…");
         int device = cameraIndex;
@@ -61,40 +62,72 @@ public final class PoseInputService implements PoseSource {
             terminateProcess();
             if (generation.get() != token) return;
             try {
-                Path root = Path.of(System.getProperty("nova.vision.dir", "vision")).toAbsolutePath();
-                Path script = root.resolve("pose_service.py");
-                if (!Files.isRegularFile(script)) throw new IOException("Camera worker missing. Launch from the repository root or set -Dnova.vision.dir.");
-                String python = System.getProperty("nova.vision.python");
-                if (python == null || python.isBlank()) {
-                    boolean windows = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win");
-                    Path venv = root.getParent().resolve(windows ? ".venv/Scripts/python.exe" : ".venv/bin/python");
-                    python = Files.isRegularFile(venv) ? venv.toString() : windows ? "python" : "python3";
-                }
-                Process child = new ProcessBuilder(python, "-u", script.toString(), "--camera", String.valueOf(device)).start();
+                Path root = PoseRuntime.directory();
+                Process child = PoseRuntime.worker(root, "pose_service.py", "--camera", String.valueOf(device)).start();
                 process = child;
                 if (generation.get() != token) { child.destroyForcibly(); return; }
                 input = new BufferedWriter(new OutputStreamWriter(child.getOutputStream(), StandardCharsets.UTF_8));
                 // Native logs must not enter the protocol or block the child on a full stderr pipe.
-                daemon(() -> drainErrors(child), "nova-camera-stderr").start();
-                daemon(() -> readFrames(child, token), "nova-camera-reader").start();
+                CompletableFuture<String> diagnostics = new CompletableFuture<>();
+                daemon(() -> diagnostics.complete(drainErrors(child)), "nova-camera-stderr").start();
+                daemon(() -> readFrames(child, token, diagnostics), "nova-camera-reader").start();
                 // Recover from missing permissions, hung drivers, or model initialization.
                 daemon(() -> {
-                    try { Thread.sleep(15_000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                    try { Thread.sleep(40_000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
                     if (generation.get() == token && preview.get() == null && child.isAlive()) {
                         publishStatus(token, new Status(State.ERROR, "Camera startup timed out. Check OS permission and camera index."));
                         child.destroyForcibly();
                     }
                 }, "nova-camera-watchdog").start();
-            } catch (IOException | RuntimeException e) {
+            } catch (IOException | InterruptedException | RuntimeException e) {
+                if (e instanceof InterruptedException) Thread.currentThread().interrupt();
                 publishStatus(token, new Status(State.ERROR,
-                        "Camera unavailable: " + e.getMessage() + " See vision/README.md for setup."));
+                        "Camera unavailable: " + e.getMessage() + " Use Set up capture to check the local installation."));
                 terminateProcess();
             }
         });
     }
 
+    /** Explicit setup action; all downloads/installations run off JavaFX in the project environment. */
+    public synchronized void setup() {
+        if (closed || status.state == State.SETUP) return;
+        long token = generation.incrementAndGet();
+        preview.set(null); metrics = new Metrics(0, 0, 0);
+        status = new Status(State.SETUP, "Preparing capture setup…");
+        commands.execute(() -> {
+            terminateProcess();
+            if (generation.get() != token) return;
+            String detail = "";
+            StringBuilder logTail = new StringBuilder();
+            try {
+                Path root = PoseRuntime.directory();
+                Process child = PoseRuntime.worker(root, "setup_capture.py").redirectErrorStream(true).start();
+                process = child;
+                if (generation.get() != token) { destroy(child); return; }
+                try (Reader reader = new BufferedReader(new InputStreamReader(child.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = PoseProtocol.readLine(reader)) != null && generation.get() == token) {
+                        if (!line.isBlank()) {
+                            logTail.append(line).append('\n');
+                            if (logTail.length() > 1500) logTail.delete(0, logTail.length() - 1500);
+                            detail = line.length() > 350 ? line.substring(line.length() - 350) : line;
+                            publishStatus(token, new Status(State.SETUP, detail));
+                        }
+                    }
+                }
+                int exit = child.waitFor();
+                publishStatus(token, new Status(exit == 0 ? State.OFF : State.ERROR, exit == 0
+                        ? "Capture setup complete. Enable the camera to begin."
+                        : "Capture setup failed: " + logTail));
+            } catch (IOException | InterruptedException | RuntimeException e) {
+                if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+                publishStatus(token, new Status(State.ERROR, "Capture setup failed: " + e.getMessage()));
+            } finally { terminateProcess(); }
+        });
+    }
+
     public synchronized void enablePose(boolean enabled) {
-        if (closed) return;
+        if (closed || status.state == State.SETUP) return;
         long token = generation.get();
         mapper.reset();
         status = new Status(enabled ? State.LOADING : State.CAMERA,
@@ -110,7 +143,7 @@ public final class PoseInputService implements PoseSource {
         });
     }
 
-    private void readFrames(Process child, long token) {
+    private void readFrames(Process child, long token, CompletableFuture<String> diagnostics) {
         long previousId = -1, previousTime = 0, count = 0, invalid = 0, poseCount = 0;
         long windowStart = System.nanoTime(), windowCount = 0;
         double fps = 0;
@@ -126,7 +159,12 @@ public final class PoseInputService implements PoseSource {
                         publishStatus(token, new Status(State.CAMERA, poseError));
                     } else {
                         poseError = null;
-                        publishStatus(token, new Status("loading".equals(packet.state()) ? State.LOADING : State.CAMERA, packet.message()));
+                        State state = switch (packet.state()) {
+                            case "opening" -> State.STARTING;
+                            case "loading" -> State.LOADING;
+                            default -> State.CAMERA;
+                        };
+                        publishStatus(token, new Status(state, packet.message()));
                     }
                     continue;
                 }
@@ -163,9 +201,13 @@ public final class PoseInputService implements PoseSource {
                     }
                 }
             }
+            String detail;
+            try { detail = diagnostics.get(500, TimeUnit.MILLISECONDS); }
+            catch (Exception ignored) { detail = ""; }
             synchronized (this) {
                 if (generation.get() == token && status.state != State.ERROR)
-                    status = new Status(State.ERROR, "Camera worker disconnected. Restart the camera.");
+                    status = new Status(State.ERROR, "Camera worker stopped. " + (detail.isBlank()
+                            ? "Use Set up capture to check Python and camera packages." : detail));
             }
         } catch (IOException | RuntimeException e) {
             publishStatus(token, new Status(State.ERROR, "Camera stopped: " + e.getMessage()));
@@ -178,9 +220,17 @@ public final class PoseInputService implements PoseSource {
         if (generation.get() == token) status = next;
     }
 
-    private static void drainErrors(Process child) {
-        try (InputStream errors = child.getErrorStream()) { errors.transferTo(OutputStream.nullOutputStream()); }
-        catch (IOException ignored) { /* Process is closing. */ }
+    private static String drainErrors(Process child) {
+        StringBuilder tail = new StringBuilder();
+        try (Reader errors = new InputStreamReader(child.getErrorStream(), StandardCharsets.UTF_8)) {
+            char[] buffer = new char[512];
+            int size;
+            while ((size = errors.read(buffer)) != -1) {
+                tail.append(buffer, 0, size);
+                if (tail.length() > 1500) tail.delete(0, tail.length() - 1500);
+            }
+        } catch (IOException ignored) { /* Process is closing. */ }
+        return tail.toString().strip();
     }
 
     @Override public synchronized void stop() {
@@ -189,11 +239,13 @@ public final class PoseInputService implements PoseSource {
         preview.set(null);
         metrics = new Metrics(0, 0, 0);
         status = new Status(State.OFF, "Camera off");
+        Process child = process;
+        if (child != null) destroy(child);
         commands.execute(this::terminateProcess);
     }
     private void terminateProcess() {
         if (process == null) return;
-        process.destroy();
+        destroy(process);
         try {
             if (!process.waitFor(400, TimeUnit.MILLISECONDS)) process.destroyForcibly().waitFor(400, TimeUnit.MILLISECONDS);
             if (input != null) input.close();
@@ -206,9 +258,13 @@ public final class PoseInputService implements PoseSource {
         stop();
         // Signal the child immediately; daemon executor cleanup may outlive the FX stage.
         Process child = process;
-        if (child != null) child.destroy();
+        if (child != null) destroy(child);
         closed = true;
         commands.shutdown();
+    }
+    private static void destroy(Process child) {
+        child.descendants().forEach(ProcessHandle::destroyForcibly);
+        child.destroy();
     }
     private static Thread daemon(Runnable runnable, String name) {
         Thread thread = new Thread(runnable, name); thread.setDaemon(true); return thread;

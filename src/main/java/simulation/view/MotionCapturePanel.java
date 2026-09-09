@@ -47,7 +47,19 @@ public final class MotionCapturePanel extends VBox {
     private final ImageView video = new ImageView();
     private final Canvas overlay = new Canvas(320, 180);
     private final Canvas chart = new Canvas(320, 90);
-    private final StackPane preview = new StackPane();
+    private final StackPane preview = new StackPane() {
+        @Override protected void layoutChildren() {
+            super.layoutChildren();
+            double x = snappedLeftInset(), y = snappedTopInset();
+            double w = Math.max(0, getWidth() - x - snappedRightInset());
+            double h = Math.max(0, getHeight() - y - snappedBottomInset());
+            video.setFitWidth(w); video.setFitHeight(h);
+            video.relocate(x + (w - video.getLayoutBounds().getWidth()) / 2,
+                    y + (h - video.getLayoutBounds().getHeight()) / 2);
+            overlay.setWidth(w); overlay.setHeight(h); overlay.relocate(x, y);
+            drawOverlay();
+        }
+    };
     private final VBox placeholder = new VBox(8);
     private final Label previewTitle = label("Your movement, in view", "capture-title");
     private final Label previewHint = label("Enable the device camera to begin.\nPlace it to your side with your full body visible.", "capture-muted");
@@ -57,6 +69,8 @@ public final class MotionCapturePanel extends VBox {
     private final ComboBox<PoseMapper.Facing> facing = new ComboBox<>();
     private final CheckBox mirror = new CheckBox("Mirror preview");
     private final Button calibrate = new Button("Calibrate standing pose");
+    private final Button setup = new Button("Set up capture…");
+    private final Button copyDetails = new Button("Copy error details");
     private final Button record = new Button("Record session");
     private final Button openReplay = new Button("Open replay…");
     private final Button replayAgain = new Button("Replay again");
@@ -103,7 +117,9 @@ public final class MotionCapturePanel extends VBox {
         buttons.getStyleClass().add("capture-toolbar");
         buttons.getStylesheets().add(getStylesheets().get(0));
         status.setWrapText(true); status.setMaxWidth(Double.MAX_VALUE);
+        status.setMinWidth(0); status.setMaxHeight(64);
         VBox bar = new VBox(6, buttons, status);
+        bar.setMinWidth(0);
         bar.setPadding(new Insets(10, 12, 10, 12));
         bar.setStyle("-fx-background-color: #171b2a; -fx-border-color: transparent transparent #303747 transparent;");
         bar.getStylesheets().add(getStylesheets().get(0));
@@ -112,25 +128,24 @@ public final class MotionCapturePanel extends VBox {
 
     private Node buildPreview() {
         preview.getStyleClass().add("capture-preview");
-        preview.setMinHeight(150); preview.setPrefHeight(185);
+        preview.setMinSize(0, 150); preview.setPrefHeight(185);
+        // Render surfaces must not determine the size of the pane that sizes them.
+        video.setManaged(false); overlay.setManaged(false);
         video.setPreserveRatio(true); video.setSmooth(true);
-        video.fitWidthProperty().bind(preview.widthProperty());
-        video.fitHeightProperty().bind(preview.heightProperty());
-        overlay.widthProperty().bind(preview.widthProperty());
-        overlay.heightProperty().bind(preview.heightProperty());
+        video.imageProperty().addListener((o, previous, next) -> preview.requestLayout());
         overlay.setMouseTransparent(true);
         previewTitle.setWrapText(true); previewHint.setWrapText(true);
         placeholder.setAlignment(Pos.CENTER); placeholder.setPadding(new Insets(18));
+        placeholder.setMinWidth(0);
         previewTitle.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
         previewHint.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
         placeholder.getChildren().addAll(previewTitle, previewHint);
         placeholder.setMouseTransparent(true);
         preview.getChildren().addAll(video, overlay, placeholder);
-        preview.widthProperty().addListener((o, a, b) -> drawOverlay());
-        preview.heightProperty().addListener((o, a, b) -> drawOverlay());
         return preview;
     }
     private Node buildMetrics() {
+        quality.setWrapText(true); quality.setMinWidth(0);
         HBox row = new HBox(8, metric("FPS", fps), metric("FRAME AGE", latency), metric("CONFIDENCE", confidence));
         for (Node item : row.getChildren()) HBox.setHgrow(item, Priority.ALWAYS);
         return new VBox(8, row, quality);
@@ -156,10 +171,15 @@ public final class MotionCapturePanel extends VBox {
         return new VBox(9, label("Joint observations", "capture-heading"), table, convention, referenceMatch, referenceStatus);
     }
     private Node buildChart() {
-        StackPane container = new StackPane(chart);
-        container.setMinHeight(90); container.setPrefHeight(90);
-        chart.widthProperty().bind(widthProperty().subtract(32));
-        chart.widthProperty().addListener((o, a, b) -> drawChart());
+        chart.setManaged(false);
+        StackPane container = new StackPane(chart) {
+            @Override protected void layoutChildren() {
+                super.layoutChildren();
+                chart.setWidth(Math.max(0, getWidth())); chart.setHeight(getHeight());
+                chart.relocate(0, 0); drawChart();
+            }
+        };
+        container.setMinSize(0, 90); container.setPrefHeight(90);
         Label legend = label("Hip · Knee · Ankle     /     last 10 seconds", "capture-muted");
         legend.setWrapText(true);
         return new VBox(7, label("Live joint trajectories", "capture-heading"), container, legend);
@@ -176,7 +196,10 @@ public final class MotionCapturePanel extends VBox {
         Label help = label("Start with camera 0. Stand side-on, keep shoulder to toe visible, then calibrate while still.", "capture-muted");
         help.setWrapText(true);
         calibrate.setMaxWidth(Double.MAX_VALUE);
-        VBox box = new VBox(9, settings, mirror, calibrate, calibrationStatus, help);
+        calibrationStatus.setWrapText(true); calibrationStatus.setMinWidth(0);
+        setup.setMaxWidth(Double.MAX_VALUE);
+        copyDetails.setVisible(false); copyDetails.setManaged(false);
+        VBox box = new VBox(9, settings, mirror, calibrate, calibrationStatus, help, setup, copyDetails);
         TitledPane pane = new TitledPane("Capture setup", box); pane.setExpanded(true);
         return pane;
     }
@@ -202,6 +225,26 @@ public final class MotionCapturePanel extends VBox {
             } else { stopRecording(); camera.enablePose(false); clearPose(); }
         });
         calibrate.setOnAction(e -> camera.mapper().calibrate());
+        setup.setOnAction(e -> {
+            if (camera.status().state() == PoseInputService.State.SETUP) { camera.stop(); return; }
+            Alert prompt = new Alert(Alert.AlertType.CONFIRMATION);
+            prompt.initOwner(getScene().getWindow()); prompt.setTitle("Set up motion capture");
+            prompt.setHeaderText("Install the camera and MediaPipe components?");
+            prompt.setContentText("This downloads the required packages and pose model into this project's Python environment. "
+                    + "Internet access and 64-bit Python 3.9–3.12 are required (3.11 recommended). "
+                    + "Setup may take several minutes. The camera stays off until you enable it.");
+            ButtonType install = new ButtonType("Install components", ButtonBar.ButtonData.OK_DONE);
+            prompt.getButtonTypes().setAll(install, ButtonType.CANCEL);
+            if (prompt.showAndWait().orElse(ButtonType.CANCEL) != install) return;
+            stopCamera();
+            if (replay != null) { replay.close(); replay = null; }
+            showPanel(); camera.setup();
+        });
+        copyDetails.setOnAction(e -> {
+            javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+            content.putString(camera.status().message());
+            javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+        });
         side.setOnAction(e -> configureMapping()); facing.setOnAction(e -> configureMapping());
         mirror.setOnAction(e -> { video.setScaleX(mirror.isSelected() ? -1 : 1); drawOverlay(); });
         keyframe.setOnAction(e -> keyframeLabel.set(keyframe.getValue()));
@@ -232,6 +275,11 @@ public final class MotionCapturePanel extends VBox {
     private void refresh() {
         if (closed) return;
         PoseInputService.Status state = camera.status();
+        boolean settingUp = state.state() == PoseInputService.State.SETUP;
+        cameraButton.setDisable(settingUp); poseButton.setDisable(settingUp);
+        setup.setText(settingUp ? "Cancel setup" : "Set up capture…");
+        boolean failed = state.state() == PoseInputService.State.ERROR;
+        copyDetails.setVisible(failed); copyDetails.setManaged(failed);
         if (replay == null && state.state() == PoseInputService.State.ERROR) {
             stopRecording(); cameraButton.setSelected(false); poseButton.setSelected(false);
             video.setImage(null); displayedPreview = null; onLost.run();
@@ -274,7 +322,13 @@ public final class MotionCapturePanel extends VBox {
         confidence.setText(healthy ? format("%.0f%%", next.confidence() * 100) : "—");
         placeholder.setVisible(video.getImage() == null && (replay == null || displayed == null));
         if (replay != null) { previewTitle.setText("Session replay"); previewHint.setText("Replaying landmarks. Camera images were not retained."); }
-        else { previewTitle.setText("Your movement, in view"); previewHint.setText("Enable the device camera to begin.\nKeep your full body visible from the side."); }
+        else if (failed) {
+            previewTitle.setText("Camera needs attention");
+            previewHint.setText("Check the status above. Use Set up capture for missing components, or Copy error details for troubleshooting.");
+        } else if (settingUp || state.state() == PoseInputService.State.STARTING) {
+            previewTitle.setText(settingUp ? "Setting up capture" : "Opening your camera");
+            previewHint.setText(settingUp ? "Installing local components. You can cancel below." : "Waiting for the first camera image…");
+        } else { previewTitle.setText("Your movement, in view"); previewHint.setText("Enable the device camera to begin.\nKeep your full body visible from the side."); }
         calibrationStatus.setText(replay == null ? camera.mapper().calibrationStatus()
                 : next != null && next.calibrated() ? "Recorded standing calibration" : "Recorded without calibration");
         PoseSessionRecorder active = recorder.get();
@@ -286,11 +340,11 @@ public final class MotionCapturePanel extends VBox {
             if (active.failure() != null) stopRecording();
         }
         calibrate.setDisable(!healthy || replay != null || recording || finishingRecording);
-        device.setDisable(cameraButton.isSelected());
+        device.setDisable(settingUp || cameraButton.isSelected());
         side.setDisable(replay != null || recording || finishingRecording);
         facing.setDisable(replay != null || recording || finishingRecording);
         keyframe.setDisable(replay != null);
-        openReplay.setDisable(finishingRecording || recording);
+        openReplay.setDisable(settingUp || finishingRecording || recording);
         replayAgain.setDisable(replay == null || replay.isRunning());
         drawOverlay(); drawChart();
     }
