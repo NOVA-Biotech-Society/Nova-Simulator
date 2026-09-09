@@ -15,12 +15,20 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+      - name: Prepare virtual display
+        run: |
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --yes xvfb
+          fi
       - name: Build and test simulator
         id: java
         shell: bash
+        env:
+          NOVA_FX_SMOKE: 'true'
         run: |
           set +e
-          mvn --batch-mode -Dstyle.color=never verify > "$RUNNER_TEMP/maven.log" 2>&1
+          xvfb-run -a mvn --batch-mode -Dstyle.color=never verify > "$RUNNER_TEMP/maven.log" 2>&1
           build_status=$?
           cat "$RUNNER_TEMP/maven.log"
           python3 - <<'PY'
