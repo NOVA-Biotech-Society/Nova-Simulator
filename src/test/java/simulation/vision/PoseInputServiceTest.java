@@ -31,15 +31,16 @@ class PoseInputServiceTest {
 
     @Test void setupCanBeCancelledWithoutWaitingForTheBlockingInstaller() throws Exception {
         Files.writeString(directory.resolve("setup_capture.py"),
-                "import time\nprint('TEST_INSTALLER_READY', flush=True)\ntime.sleep(60)\n");
+                "import os,time\nprint('TEST_INSTALLER_READY:' + str(os.getpid()), flush=True)\ntime.sleep(60)\n");
         withWorker("# no camera opened\n", source -> {
             source.setup();
             await(() -> source.status().message().contains("TEST_INSTALLER_READY"));
             assertEquals(PoseInputService.State.SETUP, source.status().state());
+            long pid = Long.parseLong(source.status().message().split(":")[1]);
             long before = System.nanoTime();
             source.stop();
             assertTrue(System.nanoTime() - before < TimeUnit.SECONDS.toNanos(1));
-            Thread.sleep(200);
+            await(() -> ProcessHandle.of(pid).map(handle -> !handle.isAlive()).orElse(true));
             assertEquals(PoseInputService.State.OFF, source.status().state());
             assertTrue(source.latest().isEmpty());
         });

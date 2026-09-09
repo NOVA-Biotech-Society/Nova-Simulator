@@ -54,6 +54,9 @@ final class PoseRuntime {
         if (windows) {
             candidates.add(List.of("py", "-3.11"));
             candidates.add(List.of("py", "-3.12"));
+        } else {
+            candidates.add(List.of("python3.11"));
+            candidates.add(List.of("python3.12"));
         }
         candidates.add(List.of("python3")); candidates.add(List.of("python"));
         List<String> available = null;

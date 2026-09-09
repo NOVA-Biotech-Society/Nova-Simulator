@@ -15,7 +15,7 @@ SPEC.loader.exec_module(setup)
 class CaptureSetupTests(unittest.TestCase):
     def test_installs_only_into_the_project_environment(self):
         with tempfile.TemporaryDirectory() as folder:
-            root = pathlib.Path(folder)
+            root = pathlib.Path(folder).resolve()
             script = root / "vision/setup_capture.py"
             with patch.object(setup, "__file__", str(script)), \
                     patch.object(setup.sys, "version_info", (3, 11, 0)), \
@@ -31,7 +31,7 @@ class CaptureSetupTests(unittest.TestCase):
 
     def test_existing_environment_is_not_recreated(self):
         with tempfile.TemporaryDirectory() as folder:
-            root = pathlib.Path(folder)
+            root = pathlib.Path(folder).resolve()
             python = root / ".venv" / ("Scripts/python.exe" if setup.sys.platform == "win32" else "bin/python")
             python.parent.mkdir(parents=True)
             python.write_text("existing environment")

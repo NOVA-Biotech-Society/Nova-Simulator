@@ -2,7 +2,7 @@ name: Verify simulator and pose capture
 on:
   pull_request:
   push:
-    branches: [main, feature/mediapipe]
+    branches: [main]
 permissions:
   contents: read
 jobs:
