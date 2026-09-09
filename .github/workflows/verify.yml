@@ -60,4 +60,21 @@ jobs:
         run: echo 'See the build step for complete Maven output.'
       - run: python -m pip install -r vision/requirements.txt
       - run: python -c "import cv2, mediapipe; from mediapipe.tasks.python.vision import PoseLandmarker"
-      - run: python -m unittest discover -s vision/tests -v
+      - name: Test pose worker and setup
+        id: python
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, unittest
+          suite = unittest.defaultTestLoader.discover('vision/tests')
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          failures = result.failures + result.errors
+          summary = ' | '.join(str(test) + ': ' + trace for test, trace in failures)
+          summary = ' '.join(summary.split())[-1500:] if failures else 'Python worker and setup tests passed'
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write('summary=' + summary + '\n')
+          raise SystemExit(0 if result.wasSuccessful() else 1)
+          PY
+      - name: '${{ steps.python.outputs.summary }}'
+        if: always() && steps.python.outcome != 'skipped'
+        run: echo 'See the Python test step for complete output.'
