@@ -15,7 +15,27 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - run: mvn --batch-mode verify
+      - name: Build and test simulator
+        id: java
+        shell: bash
+        run: |
+          set +e
+          mvn --batch-mode -Dstyle.color=never verify > "$RUNNER_TEMP/maven.log" 2>&1
+          build_status=$?
+          cat "$RUNNER_TEMP/maven.log"
+          python3 - <<'PY'
+          import os, pathlib, re
+          text = pathlib.Path(os.environ['RUNNER_TEMP'], 'maven.log').read_text()
+          errors = [line for line in text.splitlines() if '[ERROR]' in line]
+          summary = ' | '.join(errors[:8]) if errors else 'Java build and regression tests passed'
+          summary = re.sub(r'\x1b\[[0-9;]*m', '', summary)[:1500]
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('summary=' + summary + '\n')
+          PY
+          exit "$build_status"
+      - name: '${{ steps.java.outputs.summary }}'
+        if: always()
+        run: echo 'See the build step for complete Maven output.'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
