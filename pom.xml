@@ -45,7 +45,7 @@
         </dependency>
         <dependency>
             <groupId>org.tribuo</groupId>
-            <artifactId>tribuo-regression</artifactId>
+            <artifactId>tribuo-regression-core</artifactId>
             <version>${tribuo.version}</version>
         </dependency>
         <dependency>
