@@ -39,7 +39,7 @@ To switch modes later, set the config controller mode to `TRIBUO` and point `Sim
 
 | Date           | Description                                                                      | Link |
 |:---------------|:---------------------------------------------------------------------------------| :--- |
-| **2026-09-09** | **Latest: Merged AI Skeleton and NovaSimulator improvements + added unit tests** | [Demo coming soon](...) |
+| **2026-09-09** | **Latest: Merged AI Skeleton and NovaSimulator improvements + added unit tests** | [Demo coming soon]() |
 | **2026-06-03** | **Smooth realistic movement, AI Structure**                                      | [Watch on Vimeo](https://vimeo.com/1198192678?share=copy&fl=sv&fe=ci) |
 | **2026-04-09** | **360 Mode, Showcase Mode, Movement Fix, NovaRemote integration**                | [Watch on Vimeo](https://share.descript.com/view/8LQ9xMqBb8a) |
 | **2026-03-25** | **Constraint Stabilization & Import/Export Parameters**                          | [Watch on Vimeo](https://vimeo.com/1177131268?share=copy&fl=cl&fe=ci) |
