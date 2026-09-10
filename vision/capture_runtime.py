@@ -105,4 +105,4 @@ def prepare_compatibility_runtime(vision):
 def forward_to_compatible_worker(vision, script, arguments):
     """Keep the same private pipes; Java owns and terminates this process tree."""
     python = compatible_python(vision)
-    return subprocess.call([str(python), "-u", str(pathlib.Path(vision) / script), *arguments])
+    return subprocess.call([str(python), "-X", "utf8", "-u", str(pathlib.Path(vision) / script), *arguments])

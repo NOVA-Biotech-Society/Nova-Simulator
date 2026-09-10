@@ -65,7 +65,7 @@ public final class PoseInputService implements PoseSource {
                 Path root = PoseRuntime.directory();
                 Process child = PoseRuntime.worker(root, "pose_service.py", "--camera", String.valueOf(device)).start();
                 process = child;
-                if (generation.get() != token) { child.destroyForcibly(); return; }
+                if (generation.get() != token) { destroy(child); child.destroyForcibly(); return; }
                 input = new BufferedWriter(new OutputStreamWriter(child.getOutputStream(), StandardCharsets.UTF_8));
                 // Native logs must not enter the protocol or block the child on a full stderr pipe.
                 CompletableFuture<String> diagnostics = new CompletableFuture<>();
@@ -76,7 +76,7 @@ public final class PoseInputService implements PoseSource {
                     try { Thread.sleep(40_000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
                     if (generation.get() == token && preview.get() == null && child.isAlive()) {
                         publishStatus(token, new Status(State.ERROR, "Camera startup timed out. Check OS permission and camera index."));
-                        child.destroyForcibly();
+                        destroy(child); child.destroyForcibly();
                     }
                 }, "nova-camera-watchdog").start();
             } catch (IOException | InterruptedException | RuntimeException e) {
@@ -212,7 +212,7 @@ public final class PoseInputService implements PoseSource {
         } catch (IOException | RuntimeException e) {
             publishStatus(token, new Status(State.ERROR, "Camera stopped: " + e.getMessage()));
         } finally {
-            child.destroy();
+            destroy(child);
         }
     }
 

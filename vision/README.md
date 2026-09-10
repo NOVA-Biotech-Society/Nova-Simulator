@@ -17,6 +17,8 @@ Progress appears in the toolbar; **Cancel setup** stops the installer. Setup
 does not open the camera. Once complete, click **Enable camera**, then
 **Enable MediaPipe**. Existing Python 3.9–3.12 environments retain their verified
 dependency versions; Python 3.13 uses MediaPipe 0.10.35, OpenCV 4.13 and NumPy 2.2.6.
+On Linux, the Python 3.13 MediaPipe runtime also requires the system EGL/GLES
+libraries (`libegl1` and `libgles2` on Ubuntu/Debian).
 
 ### Python 3.13 on ARM
 

@@ -21,7 +21,7 @@ def main():
             python = root.parent / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
             if not python.is_file():
                 python = pathlib.Path(sys.executable)
-        return subprocess.call([str(python), str(__file__), "--inside", *sys.argv[1:]])
+        return subprocess.call([str(python), "-X", "utf8", str(__file__), "--inside", *sys.argv[1:]])
     import cv2
     import numpy as np
     from pose_service import create_landmarker, pack_landmarks

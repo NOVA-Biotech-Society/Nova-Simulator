@@ -80,6 +80,9 @@ jobs:
         run: echo 'See the Python test step for complete output.'
   python313:
     name: Python 3.13 (${{ matrix.os }})
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
     strategy:
       fail-fast: false
       matrix:
@@ -104,6 +107,9 @@ jobs:
           cache-dependency-path: vision/requirements.txt
       - name: Test runtime selection and setup
         run: python -m unittest discover -s vision/tests -v
+      - name: Install Linux graphics runtime
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes libgles2 libegl1
       - name: Install capture runtime and exercise real inference
         id: capture
         shell: bash

@@ -25,11 +25,12 @@ def main():
         print("Creating the project's Python environment…", flush=True)
         venv.EnvBuilder(with_pip=True).create(environment)
     print("Installing camera and MediaPipe packages. This can take several minutes…", flush=True)
-    subprocess.run([str(python), "-m", "pip", "install", "--disable-pip-version-check",
+    invocation = [str(python), "-X", "utf8"] if compatible else [str(python)]
+    subprocess.run([*invocation, "-m", "pip", "install", "--disable-pip-version-check",
                     "--only-binary=:all:", *target_options, "-r", str(root / "requirements.txt")], check=True)
     print("Downloading and checking the pose model…", flush=True)
-    subprocess.run([str(python), str(root / "setup_model.py")], check=True)
-    subprocess.run([str(python), str(root / "smoke_capture.py"), "--inside"], check=True)
+    subprocess.run([*invocation, str(root / "setup_model.py")], check=True)
+    subprocess.run([*invocation, str(root / "smoke_capture.py"), "--inside"], check=True)
     if compatible:
         (python.parent / "ready.sha256").write_text(capture_runtime.requirements_digest(root), encoding="ascii")
     print("Capture setup complete. Enable the camera to begin.", flush=True)

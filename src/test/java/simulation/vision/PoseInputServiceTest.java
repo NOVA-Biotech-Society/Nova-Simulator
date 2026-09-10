@@ -47,6 +47,21 @@ class PoseInputServiceTest {
     }
 
     private interface CameraCheck { void run(PoseInputService source) throws Exception; }
+    @Test void stoppingCameraAlsoTerminatesTheCompatibilityWorker() throws Exception {
+        String script = "import json,subprocess,sys\n"
+                + "child=subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+                + "print(json.dumps({'version':1,'type':'status','state':'camera','message':'CHILD_PID:'+str(child.pid)}), flush=True)\n"
+                + "child.wait()\n";
+        withWorker(script, source -> {
+            source.start();
+            await(() -> source.status().message().startsWith("CHILD_PID:"));
+            long pid = Long.parseLong(source.status().message().split(":")[1]);
+            source.stop();
+            await(() -> ProcessHandle.of(pid).map(handle -> !handle.isAlive()).orElse(true));
+            assertEquals(PoseInputService.State.OFF, source.status().state());
+        });
+    }
+
     private void withWorker(String script, CameraCheck check) throws Exception {
         String python = System.getProperty("os.name").startsWith("Windows") ? "python" : "python3";
         try { assumeTrue(new ProcessBuilder(python,"--version").start().waitFor() == 0); }
