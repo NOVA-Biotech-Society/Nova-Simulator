@@ -6,15 +6,54 @@ calibration, labelled recording, and offline replay to the main split view.
 
 ## One-time setup
 
-Use **64-bit Python 3.11**, a webcam, and the existing Java 21/Maven setup.
+Use **standard 64-bit Python 3.9–3.13**, a webcam, and the existing Java 21/Maven setup.
+Python 3.13 ARM is supported on Apple Silicon and through the Windows ARM
+compatibility path described below. Free-threaded Python builds are not supported.
 In the app, open **Motion capture → Capture setup → Set up capture…**, then
-choose **Install components**. This creates or reuses the project's `.venv`,
-installs the pinned packages, downloads the pose model, and checks the imports.
+choose **Install components**. This prepares the project capture environment,
+installs the pinned packages, downloads the pose model, and checks JPEG encoding
+and actual VIDEO-mode inference without accessing the camera.
 Progress appears in the toolbar; **Cancel setup** stops the installer. Setup
 does not open the camera. Once complete, click **Enable camera**, then
-**Enable MediaPipe**. Python 3.9–3.12 is supported; Python 3.11 is recommended.
+**Enable MediaPipe**. Existing Python 3.9–3.12 environments retain their verified
+dependency versions; Python 3.13 uses MediaPipe 0.10.35, OpenCV 4.13 and NumPy 2.2.6.
 
-For manual setup instead, from the repository root create the environment:
+### Python 3.13 on ARM
+
+- **Apple Silicon (macOS 13+)**: camera and inference run natively in the project's
+  `.venv` using ARM64 Python 3.13.
+- **Windows 11 ARM64**: the ARM Python runs setup and launches a separate x64
+  Python 3.13.15 worker under Windows emulation. OpenCV currently has no native
+  Windows ARM64 wheel. The isolated worker lives in
+  `.nova-capture/python-3.13.15-x64`; the installed ARM Python and existing `.venv`
+  are preserved. The worker uses the same private process pipes and cleanup path.
+  Performance must be measured on the actual device.
+
+On Windows ARM, use the app's **Set up capture…** action, or run this with the
+installed ARM Python from the repository root:
+
+```powershell
+python vision/setup_capture.py
+mvn javafx:run
+```
+
+The compatibility runtime and pip bootstrap come from the official
+[Python 3.13.15 release](https://www.python.org/downloads/release/python-31315/)
+and [PyPA pip 25.2 wheel](https://pypi.org/project/pip/25.2/). Their SHA-256 values
+are pinned and verified before extraction. Installation accepts binary packages
+only and never attempts an OpenCV source build. A readiness marker is written
+only after setup and inference succeed; updated requirements require setup again.
+Downloads occur only through the explicit setup action. If an interrupted runtime
+folder is reported, close NOVA, rename that specific folder, then retry setup.
+
+Maintainers updating the embedded runtime must update its version, official URL
+and release SHA-256 together in `capture_runtime.py`, then run the Windows ARM CI
+job. Third-party runtime files are ignored by git and are not redistributed in
+this repository.
+
+### Manual setup on other supported systems
+
+From the repository root create the environment:
 
 ```bash
 python -m venv .venv
@@ -43,7 +82,7 @@ does not install packages or download models when the camera is enabled.
 The launcher locates `vision` beside the compiled app or above its working
 directory, so IDE launches from `target/classes` or another directory work.
 It discovers the project's `.venv` automatically and also recognizes the Windows
-`py -3.11` / `py -3.12` launchers and an active virtual environment. For other installations,
+`py -3.13` / `py -3.12` / `py -3.11` launchers and an active virtual environment. For other installations,
 pass JVM properties `nova.vision.python` (the interpreter executable, without
 shell quotes or flags) and `nova.vision.dir` (the absolute folder containing
 `pose_service.py`) through the Java launcher/IDE. The fallback interpreter is
@@ -161,7 +200,9 @@ python -m unittest discover -s vision/tests -v
 poses, angle signs, image aspect ratio, orientation, confidence, occlusion,
 filtering, velocity resets and calibration. Maven includes session round-trip,
 input-bound and failure tests alongside the original suite. CI checks Java 21 and
-the pinned Python dependencies on Linux and Windows. Under Linux's virtual
+the pinned Python dependencies on Linux and Windows. Separate Python 3.13 jobs
+exercise setup, JPEG codecs, actual VIDEO inference and 33-point normalized/world
+landmarks on Linux x64, Windows x64, Apple Silicon and Windows ARM. Under Linux's virtual
 display, the JavaFX regression runs repeated actual layout pulses with landscape
 and portrait preview images, expands/collapses the panel, and resizes the window
 down and up while asserting stable window and divider positions.
@@ -192,14 +233,15 @@ R&D observation/dataset tool.
   close other camera apps, select another index and retry. On Windows, enable
   camera access for **desktop apps**, including the Java/Python process. A working
   Windows Camera app alone does not establish access for desktop programs.
-- **Missing Python/OpenCV/packages**: install 64-bit Python 3.11, restart NOVA,
+- **Missing Python/OpenCV/packages**: install standard 64-bit Python 3.13 or 3.11, restart NOVA,
   then use **Set up capture…**. If automatic setup fails, use the manual commands
   above. The setup button does not install or upgrade system Python.
 - **Unclear startup error**: use **Copy error details** in Capture setup. Native
   worker errors are retained in a bounded diagnostic message instead of being
   replaced with a generic disconnection message.
 - **MediaPipe unavailable**: run setup using the interpreter the app uses. Python
-  3.11 is recommended for the pinned wheels. Camera-only mode still works.
+  3.13 and 3.11 are supported; Windows ARM requires the compatibility setup.
+  Camera-only mode still works.
 - **Startup timeout / stream stalled**: stop the camera, check device and OS
   permission, and retry. Model initialization can temporarily delay frames.
 - **Incorrect angle signs**: verify visible side and facing direction in the

@@ -1,3 +1,8 @@
-mediapipe==0.10.21
-opencv-contrib-python==4.11.0.86
-numpy==1.26.4
+# Keep the verified legacy stack for existing Python environments.
+mediapipe==0.10.21 ; python_version < "3.13"
+opencv-contrib-python==4.11.0.86 ; python_version < "3.13"
+numpy==1.26.4 ; python_version < "3.13"
+# MediaPipe's C API wheels and NumPy 2 support standard CPython 3.13.
+mediapipe==0.10.35 ; python_version >= "3.13"
+opencv-contrib-python==4.13.0.92 ; python_version >= "3.13"
+numpy==2.2.6 ; python_version >= "3.13"

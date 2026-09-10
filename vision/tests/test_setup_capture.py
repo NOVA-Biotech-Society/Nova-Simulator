@@ -4,8 +4,11 @@ import io
 import pathlib
 import subprocess
 import tempfile
+import sys
 import unittest
 from unittest.mock import patch
+
+sys.path.insert(0, str(pathlib.Path(__file__).parents[1]))
 
 SPEC = importlib.util.spec_from_file_location("setup_capture", pathlib.Path(__file__).parents[1] / "setup_capture.py")
 setup = importlib.util.module_from_spec(SPEC)
@@ -13,6 +16,10 @@ SPEC.loader.exec_module(setup)
 
 
 class CaptureSetupTests(unittest.TestCase):
+    def setUp(self):
+        self.platform_patch = patch.object(setup.capture_runtime, "windows_arm", return_value=False)
+        self.platform_patch.start()
+        self.addCleanup(self.platform_patch.stop)
     def test_installs_only_into_the_project_environment(self):
         with tempfile.TemporaryDirectory() as folder:
             root = pathlib.Path(folder).resolve()

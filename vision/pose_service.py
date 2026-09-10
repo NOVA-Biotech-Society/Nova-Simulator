@@ -183,6 +183,14 @@ def run(camera_index, model):
 
 
 def main():
+    import capture_runtime
+    if capture_runtime.windows_arm():
+        try:
+            return capture_runtime.forward_to_compatible_worker(pathlib.Path(__file__).parent,
+                                                               "pose_service.py", sys.argv[1:])
+        except Exception as exc:
+            emit({"type": "error", "message": str(exc)})
+            return 1
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument("--model", type=pathlib.Path,

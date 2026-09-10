@@ -52,9 +52,11 @@ final class PoseRuntime {
         if (active != null && Files.isRegularFile(Path.of(active).resolve(executable)))
             candidates.add(List.of(Path.of(active).resolve(executable).toString()));
         if (windows) {
+            candidates.add(List.of("py", "-3.13"));
             candidates.add(List.of("py", "-3.11"));
             candidates.add(List.of("py", "-3.12"));
         } else {
+            candidates.add(List.of("python3.13"));
             candidates.add(List.of("python3.11"));
             candidates.add(List.of("python3.12"));
         }
@@ -64,7 +66,7 @@ final class PoseRuntime {
             List<String> command = new ArrayList<>(candidate);
             command.addAll(List.of("-c", "import sys,importlib.util; "
                     + "print('NOVA_PYTHON', int(importlib.util.find_spec('cv2') is not None)); "
-                    + "sys.exit(0 if (3,9) <= sys.version_info[:2] <= (3,12) else 2)"));
+                    + "sys.exit(0 if (3,9) <= sys.version_info[:2] <= (3,13) else 2)"));
             Process probe = null;
             try {
                 probe = new ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.DISCARD).start();
@@ -77,7 +79,7 @@ final class PoseRuntime {
             finally { if (probe != null && probe.isAlive()) probe.destroyForcibly(); }
         }
         if (available != null) return available;
-        throw new IOException("Python 3.9–3.12 was not found. Install 64-bit Python 3.11, restart the app, "
+        throw new IOException("Python 3.9–3.13 was not found. Install 64-bit Python 3.13 or 3.11, restart the app, "
                 + "then click Set up capture. You can also set -Dnova.vision.python to your interpreter.");
     }
 

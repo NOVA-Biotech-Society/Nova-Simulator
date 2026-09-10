@@ -231,7 +231,8 @@ public final class MotionCapturePanel extends VBox {
             prompt.initOwner(getScene().getWindow()); prompt.setTitle("Set up motion capture");
             prompt.setHeaderText("Install the camera and MediaPipe components?");
             prompt.setContentText("This downloads the required packages and pose model into this project's Python environment. "
-                    + "Internet access and 64-bit Python 3.9–3.12 are required (3.11 recommended). "
+                    + "Internet access and 64-bit Python 3.9–3.13 are required. On Windows ARM, setup also downloads "
+                    + "a separate Python 3.13 x64 capture runtime for Windows emulation; your installed Python stays unchanged. "
                     + "Setup may take several minutes. The camera stays off until you enable it.");
             ButtonType install = new ButtonType("Install components", ButtonBar.ButtonData.OK_DONE);
             prompt.getButtonTypes().setAll(install, ButtonType.CANCEL);

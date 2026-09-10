@@ -78,3 +78,57 @@ jobs:
       - name: '${{ steps.python.outputs.summary }}'
         if: always() && steps.python.outcome != 'skipped'
         run: echo 'See the Python test step for complete output.'
+  python313:
+    name: Python 3.13 (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            architecture: x64
+          - os: windows-latest
+            architecture: x64
+          - os: macos-14
+            architecture: arm64
+          - os: windows-11-arm
+            architecture: arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          architecture: ${{ matrix.architecture }}
+          cache: pip
+          cache-dependency-path: vision/requirements.txt
+      - name: Test runtime selection and setup
+        run: python -m unittest discover -s vision/tests -v
+      - name: Install capture runtime and exercise real inference
+        id: capture
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, pathlib, subprocess, sys, urllib.request
+          log = pathlib.Path(os.environ['RUNNER_TEMP']) / 'capture313.log'
+          code = 0
+          with log.open('w', encoding='utf-8') as output:
+              try:
+                  subprocess.run([sys.executable, 'vision/setup_capture.py'], stdout=output, stderr=subprocess.STDOUT, check=True)
+                  fixture = pathlib.Path(os.environ['RUNNER_TEMP']) / 'pose.jpg'
+                  with urllib.request.urlopen('https://storage.googleapis.com/mediapipe-assets/pose.jpg', timeout=60) as response:
+                      fixture.write_bytes(response.read())
+                  subprocess.run([sys.executable, 'vision/smoke_capture.py', '--image', str(fixture)], stdout=output, stderr=subprocess.STDOUT, check=True)
+              except Exception as error:
+                  output.write('\n' + str(error) + '\n')
+                  code = 1
+          text = log.read_text(encoding='utf-8', errors='replace')
+          print(text)
+          summary = ' '.join(text.split())[-1500:] if code else 'Python 3.13 setup, codecs and pose landmarks passed'
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write('summary=' + summary + '\n')
+          raise SystemExit(code)
+          PY
+      - name: '${{ steps.capture.outputs.summary }}'
+        if: always() && steps.capture.outcome != 'skipped'
+        run: echo 'See the capture step for complete output.'
