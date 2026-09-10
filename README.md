@@ -9,6 +9,7 @@ This simulator is designed to bridge the gap between biomechanical physics and m
 The Nova-Simulator is a 2D physics engine (rendered in 3D) built with **JavaFX**. It allows for real-time simulation of human gait cycles, sensor data acquisition (IMU), and exoskeleton torque assistance.
 
 ### Key Features
+* **MediaPipe Motion Capture:** Optional local camera preview, skeleton overlay, calibrated joint observations, comparison avatar, live traces, and labelled dataset recording/replay. See [capture setup and usage](vision/README.md).
 * **Physics Engine:** Rigid body dynamics with semi-implicit Euler integration.
 * **Kinematic Constraints:** Real-time joint stabilization (Hip, Knee, Ankle) using `enforcePositionConstraints`.
 * **Modular Design:** Drag-and-drop system for placing motors and sensors on segments.
@@ -36,12 +37,13 @@ To switch modes later, set the config controller mode to `TRIBUO` and point `Sim
 
 ##  Project Evolution (Demo Videos)
 
-| Date | Description | Link |
-| :--- | :--- | :--- |
-| **2026-06-03** | **Latest: Smooth realistic movement, AI Structure** | [Watch on Vimeo](https://vimeo.com/1198192678?share=copy&fl=sv&fe=ci) |
-| **2026-04-09** | **360 Mode, Showcase Mode, Movement Fix, NovaRemote integration** | [Watch on Vimeo](https://share.descript.com/view/8LQ9xMqBb8a) |
-| **2026-03-25** | **Constraint Stabilization & Import/Export Parameters** | [Watch on Vimeo](https://vimeo.com/1177131268?share=copy&fl=cl&fe=ci) |
-| **2026-03-04** | **Initial: 3D Rendering & Basic Physics** | [Watch on Vimeo](https://vimeo.com/1177130383?share=copy&fl=cl&fe=ci) |
+| Date           | Description                                                                      | Link |
+|:---------------|:---------------------------------------------------------------------------------| :--- |
+| **2026-09-09** | **Latest: Merged AI Skeleton and NovaSimulator improvements + added unit tests** | [Watch on Vimeo](https://vimeo.com/1198192678?share=copy&fl=sv&fe=ci) |
+| **2026-06-03** | **Smooth realistic movement, AI Structure**                                      | [Watch on Vimeo](https://vimeo.com/1198192678?share=copy&fl=sv&fe=ci) |
+| **2026-04-09** | **360 Mode, Showcase Mode, Movement Fix, NovaRemote integration**                | [Watch on Vimeo](https://share.descript.com/view/8LQ9xMqBb8a) |
+| **2026-03-25** | **Constraint Stabilization & Import/Export Parameters**                          | [Watch on Vimeo](https://vimeo.com/1177131268?share=copy&fl=cl&fe=ci) |
+| **2026-03-04** | **Initial: 3D Rendering & Basic Physics**                                        | [Watch on Vimeo](https://vimeo.com/1177130383?share=copy&fl=cl&fe=ci) |
 
 ---
 

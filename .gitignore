@@ -1,0 +1,8 @@
+/target/
+/out/
+/.venv/
+/.nova-capture/
+/vision/models/
+__pycache__/
+*.pyc
+/pose-sessions/
